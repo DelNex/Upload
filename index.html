@@ -498,12 +498,12 @@
             <div class="brand-icon">↑</div>
             <div class="brand-title">
                 <span class="brand-name">DropBox - Storage</span>
-                <span class="brand-tag">TUS Resumable Engine</span>
+                <span class="brand-tag">Azure Storage</span>
             </div>
         </div>
 
         <div class="header-badges">
-            <span class="badge-pill">50 MiB Chunks</span>
+            <span class="badge-pill">Direct Azure Upload</span>
             <div class="connection" id="connectionStatus">
                 <div class="connection-dot"></div>
                 <span id="connectionText">Checking...</span>
@@ -512,15 +512,15 @@
     </header>
 
     <section class="hero">
-        <h1>High-Speed Resumable <span>Laptop Storage</span></h1>
-        <p>Stream ultra-large media files straight to home server SSDs via Cloudflare Tunnel — completely bypassing the 100 MB request limit with 50 MiB chunking.</p>
+        <h1>Private <span>Azure Storage</span></h1>
+        <p>Upload your files directly to private Azure Blob Storage. Your original files are preserved with zero quality loss and byte-for-byte fidelity.</p>
     </section>
 
     <div class="drop-zone" id="dropZone">
         <div class="drop-content">
             <div class="upload-icon-wrapper">📁</div>
             <h2 class="drop-title">Drag & drop files here</h2>
-            <p class="drop-sub">TUS protocol chunked transport (Up to 50 GB per file)</p>
+            <p class="drop-sub">Direct Azure Block Blob Upload (Up to 50 GB per file)</p>
             <span class="drop-hint">Supported: JPG, PNG, GIF, WebP, AVIF, MP4, WebM, MOV, MKV, AVI (Max 50 files/batch)</span>
             <div>
                 <label class="browse-button" id="browseButton" for="fileInput">
@@ -795,9 +795,9 @@
 
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
             const data = await response.json();
-            setConnection(data.ok === true, data.ok ? "Laptop online (TUS active)" : "Laptop issue");
+            setConnection(data.ok === true, data.ok ? "Storage API Online" : "Storage API Disconnected");
         } catch {
-            setConnection(false, "Laptop offline (will retry on upload)");
+            setConnection(false, "Storage API Offline");
         }
     }
 
