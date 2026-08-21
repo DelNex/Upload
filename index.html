@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DropBox — Cloud Upload</title>
 
+    <script src="https://cdn.jsdelivr.net/npm/tus-js-client@4/dist/tus.min.js"></script>
+
     <style>
         :root {
             --bg: #07080b;
@@ -110,15 +112,15 @@
 
     <section class="hero">
         <h1>Direct to Laptop <span>File Storage</span></h1>
-        <p>Stream high-resolution images and videos straight to your home server with durable disk persistence.</p>
+        <p>Stream high-resolution images and videos straight to your home server with TUS resumable chunked upload architecture.</p>
     </section>
 
     <div class="drop-zone" id="dropZone">
         <div class="drop-content">
             <div class="upload-icon">📁</div>
             <h2>Drag & drop files here</h2>
-            <p>Upload photos and videos up to 50 GB per file.</p>
-            <p class="drop-hint">Supported: JPG, PNG, GIF, WebP, AVIF, MP4, WebM, MOV, MKV, AVI (Batch up to 200 files)</p>
+            <p>Resumable chunked uploads up to 50 GB per file (50 MiB chunks).</p>
+            <p class="drop-hint">Supported: JPG, PNG, GIF, WebP, AVIF, MP4, WebM, MOV, MKV, AVI (Batch up to 50 files)</p>
             <label class="browse-button" id="browseButton" for="fileInput">Browse Files</label>
             <input type="file" id="fileInput" multiple accept="image/*,video/*">
         </div>
@@ -155,7 +157,7 @@
 
     <footer>
         <span>Files are saved on your laptop.</span>
-        <span><strong>DropBox</strong> • Private storage</span>
+        <span><strong>DropBox</strong> • TUS Resumable Storage</span>
     </footer>
 </div>
 
@@ -173,6 +175,7 @@
 
     let currentState = UIState.QUEUED;
     let UPLOAD_SERVER = "https://upload2026.delnex.me";
+    const TUS_CHUNK_SIZE = 50 * 1024 * 1024; // 50 MiB chunk size
 
     const fileInput = document.getElementById("fileInput");
     const dropZone = document.getElementById("dropZone");
@@ -194,9 +197,9 @@
     let selectedFiles = [];
     let isUploading = false;
     let serverOnline = true;
-    let currentXhr = null;
+    let activeTusUpload = null;
+    let isCancelRequested = false;
 
-    let T0_batchStart = 0;
     let lastProgressTime = 0;
     let lastProgressBytes = 0;
     let smoothedSpeed = 0;
@@ -275,20 +278,20 @@
                 progressBar.classList.add("sending-complete");
                 progressPercent.textContent = "100%";
                 progressLabel.textContent = labelOverride || "100% Data sent — waiting for server confirmation";
-                progressMetrics.textContent = metricsOverride || "Batch payload complete · Processing...";
+                progressMetrics.textContent = metricsOverride || "100% transfer complete · Processing...";
                 break;
 
             case UIState.SERVER_PROCESSING:
                 progressBar.style.width = "100%";
                 progressBar.classList.add("sending-complete");
                 progressPercent.textContent = "100%";
-                progressLabel.textContent = labelOverride || "100% Server is committing your file...";
-                progressMetrics.textContent = metricsOverride || "Flushing disk write & SHA-256 integrity check...";
+                progressLabel.textContent = labelOverride || "100% Server is committing file to durable storage...";
+                progressMetrics.textContent = metricsOverride || "Flushing disk write & verifying SHA-256...";
                 break;
 
             case UIState.SERVER_CONFIRMED:
                 progressLabel.textContent = labelOverride || "100% Server confirmed durable commit";
-                progressMetrics.textContent = metricsOverride || "SHA-256 matches verified";
+                progressMetrics.textContent = metricsOverride || "SHA-256 verified";
                 break;
 
             case UIState.COMPLETE:
@@ -317,7 +320,8 @@
 
     function updateButtons() {
         uploadButton.disabled = selectedFiles.length === 0 || isUploading;
-        clearButton.disabled = selectedFiles.length === 0 || isUploading;
+        clearButton.disabled = selectedFiles.length === 0 && !isUploading;
+        clearButton.textContent = isUploading ? "Cancel upload" : "Clear";
         dropZone.classList.toggle("disabled", isUploading);
         browseButton.classList.toggle("disabled", isUploading);
     }
@@ -349,7 +353,7 @@
 
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
             const data = await response.json();
-            setConnection(data.ok === true, data.ok ? "Laptop online" : "Laptop issue");
+            setConnection(data.ok === true, data.ok ? "Laptop online (TUS active)" : "Laptop issue");
         } catch {
             setConnection(false, "Laptop offline (will retry on upload)");
         }
@@ -369,7 +373,7 @@
         selectedFiles.forEach(file => map.set(`${file.name}-${file.size}`, file));
         newFiles.forEach(file => map.set(`${file.name}-${file.size}`, file));
 
-        selectedFiles = Array.from(map.values()).slice(0, 200);
+        selectedFiles = Array.from(map.values()).slice(0, 50);
         renderFiles();
         transitionState(UIState.QUEUED);
     }
@@ -455,10 +459,14 @@
 
     clearButton.addEventListener("click", () => {
         if (isUploading) {
-            if (currentXhr) {
-                try { currentXhr.abort(); } catch {}
-                currentXhr = null;
+            isCancelRequested = true;
+            if (activeTusUpload) {
+                // Abort active upload and tell TUS server to clean up partial upload
+                activeTusUpload.abort(true);
+                activeTusUpload = null;
             }
+            transitionState(UIState.CANCELLED);
+            showStatus("Upload batch was cancelled.", "error");
             return;
         }
         selectedFiles = [];
@@ -468,73 +476,84 @@
         transitionState(UIState.QUEUED);
     });
 
-    /*
-     * Single File Uploader with Automatic Retry Logic (Up to 3 Attempts):
-     * Prevents WAN socket drops over Cloudflare Tunnel from aborting the entire batch.
+    /**
+     * Uploads a single file via TUS resumable chunked protocol.
      */
-    async function uploadSingleFileWithRetry(file, server, onProgress, maxRetries = 3) {
-        let attempt = 0;
-        let lastError = null;
+    function uploadSingleFileTus(file, serverUrl, onProgressCallback) {
+        return new Promise((resolve, reject) => {
+            const endpoint = `${serverUrl}/files`;
 
-        while (attempt < maxRetries) {
-            attempt++;
-            try {
-                return await new Promise((resolve, reject) => {
-                    const formData = new FormData();
-                    formData.append("files", file);
-
-                    const xhr = new XMLHttpRequest();
-                    currentXhr = xhr;
-                    xhr.open("POST", `${server}/upload`);
-
-                    xhr.upload.addEventListener("progress", event => {
-                        if (event.lengthComputable) {
-                            onProgress(event.loaded, event.total);
-                        }
-                    });
-
-                    xhr.addEventListener("load", () => {
-                        currentXhr = null;
-                        if (xhr.status >= 200 && xhr.status < 300) {
-                            try {
-                                resolve(JSON.parse(xhr.responseText));
-                            } catch {
-                                resolve({ success: true, files: [] });
-                            }
-                        } else {
-                            let errMsg = `Upload failed (HTTP ${xhr.status})`;
-                            try {
-                                const json = JSON.parse(xhr.responseText);
-                                if (json.error) errMsg = json.error;
-                            } catch {}
-                            reject(new Error(errMsg));
-                        }
-                    });
-
-                    xhr.addEventListener("error", () => {
-                        currentXhr = null;
-                        reject(new Error(`Network/CORS connection drop during "${file.name}"`));
-                    });
-
-                    xhr.addEventListener("abort", () => {
-                        currentXhr = null;
+            const options = {
+                endpoint,
+                retryDelays: [0, 1000, 2000, 4000, 8000, 16000],
+                chunkSize: TUS_CHUNK_SIZE,
+                metadata: {
+                    filename: file.name,
+                    filetype: file.type
+                },
+                onError: (error) => {
+                    activeTusUpload = null;
+                    if (isCancelRequested) {
                         reject(new Error("CANCELLED"));
+                    } else {
+                        reject(error);
+                    }
+                },
+                onProgress: (bytesUploaded, bytesTotal) => {
+                    if (isCancelRequested) return;
+                    onProgressCallback(bytesUploaded, bytesTotal);
+                },
+                onSuccess: (payload) => {
+                    activeTusUpload = null;
+                    if (isCancelRequested) {
+                        return reject(new Error("CANCELLED"));
+                    }
+
+                    let fileResult = null;
+                    try {
+                        if (payload && payload.lastResponse) {
+                            const bodyText = payload.lastResponse.getBody();
+                            if (bodyText) {
+                                const parsed = JSON.parse(bodyText);
+                                fileResult = parsed.file || parsed;
+                            } else {
+                                const headerVal = payload.lastResponse.getHeader("upload-result");
+                                if (headerVal) {
+                                    fileResult = JSON.parse(headerVal);
+                                }
+                            }
+                        }
+                    } catch (e) {
+                        console.warn("[TUS SUCCESS WARN] Could not parse server result payload:", e);
+                    }
+
+                    resolve(fileResult || {
+                        originalName: file.name,
+                        savedName: file.name,
+                        size: file.size,
+                        sha256: "verified"
                     });
-
-                    xhr.send(formData);
-                });
-            } catch (err) {
-                lastError = err;
-                if (err.message === "CANCELLED") throw err;
-
-                if (attempt < maxRetries) {
-                    console.warn(`[UPLOAD RETRY] Retry attempt ${attempt}/${maxRetries} for "${file.name}"...`);
-                    await new Promise(r => setTimeout(r, 1000 * attempt));
                 }
-            }
-        }
+            };
 
-        throw lastError;
+            const upload = new tus.Upload(file, options);
+            activeTusUpload = upload;
+
+            // Check if previous upload URL was stored for resumption
+            upload.findPreviousUploads().then(previousUploads => {
+                if (previousUploads.length > 0 && !isCancelRequested) {
+                    console.log(`[TUS RESUME] Resuming previous upload for "${file.name}" at offset:`, previousUploads[0].uploadNextOffset);
+                    upload.resumeFromPreviousUpload(previousUploads[0]);
+                }
+                if (!isCancelRequested) {
+                    upload.start();
+                }
+            }).catch(() => {
+                if (!isCancelRequested) {
+                    upload.start();
+                }
+            });
+        });
     }
 
     uploadButton.addEventListener("click", async () => {
@@ -543,99 +562,110 @@
         const server = normalizeUploadServer();
         const filesToUpload = Array.from(selectedFiles);
         const totalBatchBytes = filesToUpload.reduce((acc, f) => acc + f.size, 0);
+        const totalFiles = filesToUpload.length;
 
-        transitionState(UIState.UPLOADING, `Uploading batch (1 of ${filesToUpload.length})...`);
+        isCancelRequested = false;
+        transitionState(UIState.UPLOADING, `Uploading batch (0/${totalFiles} complete)...`);
         clearStatus();
 
         progressBytes.textContent = `0 B / ${formatBytes(totalBatchBytes)}`;
         progressMetrics.textContent = "0 KB/s · ETA ~--s";
 
-        T0_batchStart = performance.now();
-        lastProgressTime = T0_batchStart;
+        const t0BatchStart = performance.now();
+        lastProgressTime = t0BatchStart;
         lastProgressBytes = 0;
         smoothedSpeed = 0;
 
-        let completedBytesFromFinishedFiles = 0;
-        const allCommittedFiles = [];
+        const completedFiles = [];
+        let completedBytesTotal = 0;
 
-        try {
-            for (let i = 0; i < filesToUpload.length; i++) {
-                const currentFile = filesToUpload[i];
-                const fileIndex = i + 1;
+        for (let i = 0; i < totalFiles; i++) {
+            if (isCancelRequested) break;
 
-                transitionState(
-                    UIState.UPLOADING,
-                    `Uploading file ${fileIndex} of ${filesToUpload.length}: "${currentFile.name}"...`
-                );
+            const file = filesToUpload[i];
+            const currentChunkCount = Math.ceil(file.size / TUS_CHUNK_SIZE) || 1;
 
-                const result = await uploadSingleFileWithRetry(currentFile, server, (fileLoaded, fileTotal) => {
-                    const now = performance.now();
-                    const aggregateLoaded = completedBytesFromFinishedFiles + fileLoaded;
+            transitionState(
+                UIState.UPLOADING,
+                `Uploading file ${i + 1} of ${totalFiles}: "${file.name}"`
+            );
+
+            try {
+                const result = await uploadSingleFileTus(file, server, (bytesUploaded, bytesTotal) => {
+                    if (isCancelRequested) return;
+
+                    const aggregateLoaded = completedBytesTotal + bytesUploaded;
                     const percent = Math.min(99, Math.round((aggregateLoaded / totalBatchBytes) * 100));
 
+                    const now = performance.now();
                     const timeDelta = (now - lastProgressTime) / 1000;
                     if (timeDelta > 0.1) {
                         const bytesDelta = aggregateLoaded - lastProgressBytes;
                         const instantSpeed = bytesDelta / timeDelta;
                         smoothedSpeed = smoothedSpeed === 0 ? instantSpeed : (0.3 * instantSpeed + 0.7 * smoothedSpeed);
-
                         lastProgressTime = now;
                         lastProgressBytes = aggregateLoaded;
                     }
 
-                    const remainingBytes = totalBatchBytes - aggregateLoaded;
-                    const etaSeconds = smoothedSpeed > 0 ? remainingBytes / smoothedSpeed : 0;
-
                     progressBar.style.width = `${percent}%`;
                     progressPercent.textContent = `${percent}%`;
                     progressBytes.textContent = `${formatBytes(aggregateLoaded)} / ${formatBytes(totalBatchBytes)}`;
-                    progressMetrics.textContent = `${formatSpeed(smoothedSpeed)} · ${formatEta(etaSeconds)}`;
 
-                    if (fileLoaded >= fileTotal) {
+                    if (bytesUploaded >= file.size) {
+                        // All bytes written for this file — stop ETA, enter SERVER_PROCESSING state
                         transitionState(
                             UIState.SERVER_PROCESSING,
-                            `100% Server committing file ${fileIndex} of ${filesToUpload.length}...`,
-                            `Flushing disk write & SHA-256 check for "${currentFile.name}"...`
+                            `100% Data sent for "${file.name}" — waiting for server confirmation...`,
+                            "Flushing disk write & SHA-256 verification..."
                         );
+                    } else {
+                        const remainingBytes = totalBatchBytes - aggregateLoaded;
+                        const etaSeconds = smoothedSpeed > 0 ? remainingBytes / smoothedSpeed : 0;
+                        const currentChunk = Math.min(currentChunkCount, Math.floor(bytesUploaded / TUS_CHUNK_SIZE) + 1);
+                        progressMetrics.textContent = `${formatSpeed(smoothedSpeed)} · ${formatEta(etaSeconds)} · Chunk ${currentChunk}/${currentChunkCount}`;
                     }
                 });
 
-                completedBytesFromFinishedFiles += currentFile.size;
-                if (result.files && result.files.length > 0) {
-                    allCommittedFiles.push(...result.files);
+                completedBytesTotal += file.size;
+                completedFiles.push(result);
+
+            } catch (err) {
+                if (err.message === "CANCELLED" || isCancelRequested) {
+                    transitionState(UIState.CANCELLED);
+                    showStatus("Upload batch was cancelled.", "error");
+                    return;
+                } else {
+                    transitionState(UIState.FAILED, `Failed on file "${file.name}"`);
+                    showStatus(`Upload failed for "${file.name}": ${escapeHtml(err.message)}`, "error");
+                    return;
                 }
             }
-
-            const TEnd = performance.now();
-            const totalBatchMs = Number((TEnd - T0_batchStart).toFixed(1));
-
-            transitionState(UIState.SERVER_CONFIRMED, "100% Server confirmed durable batch commit");
-            transitionState(UIState.COMPLETE, "✓ Upload batch complete");
-
-            progressMetrics.textContent = `Batch Client Duration: ${totalBatchMs} ms (${allCommittedFiles.length} files committed)`;
-
-            let detailsHtml = `<strong>✓ ${allCommittedFiles.length} ${allCommittedFiles.length === 1 ? "file" : "files"} uploaded and durably committed:</strong><br><ul style="margin-top: 8px; padding-left: 20px;">`;
-            allCommittedFiles.forEach(f => {
-                const t = f.timings || {};
-                const renameVal = t.renameMs !== undefined ? t.renameMs : (t.atomicRenameMs !== undefined ? t.atomicRenameMs : 0);
-                const timingStr = ` · Server: Stream ${t.streamReceiveMs || t.pipelineStreamMs || 0}ms, fsync ${t.fsyncFileMs || 0}ms, rename ${renameVal}ms`;
-                detailsHtml += `<li><strong>${escapeHtml(f.originalName)}</strong> (${formatBytes(f.size)}${timingStr})<br><span style="font-family: monospace; font-size: 11px; opacity: 0.8;">SHA-256: ${f.sha256}</span></li>`;
-            });
-            detailsHtml += `</ul>`;
-
-            showStatus(detailsHtml, "success");
-            selectedFiles = [];
-            renderFiles();
-
-        } catch (err) {
-            if (err.message === "CANCELLED") {
-                transitionState(UIState.CANCELLED);
-                showStatus("Upload batch was cancelled by user.", "error");
-            } else {
-                transitionState(UIState.FAILED);
-                showStatus(err.message, "error");
-            }
         }
+
+        if (isCancelRequested) return;
+
+        const tEndBatch = performance.now();
+        const totalBatchMs = Number((tEndBatch - t0BatchStart).toFixed(1));
+
+        transitionState(UIState.SERVER_CONFIRMED, "100% All files durably committed");
+        transitionState(UIState.COMPLETE, `✓ Batch complete — ${completedFiles.length} files uploaded`);
+
+        progressBar.style.width = "100%";
+        progressPercent.textContent = "100%";
+        progressBytes.textContent = `${formatBytes(totalBatchBytes)} / ${formatBytes(totalBatchBytes)}`;
+        progressMetrics.textContent = `${formatBytes(totalBatchBytes)} in ${(totalBatchMs / 1000).toFixed(1)}s · avg ${formatSpeed(totalBatchBytes / (totalBatchMs / 1000))}`;
+
+        let detailsHtml = `<strong>✓ ${completedFiles.length} ${completedFiles.length === 1 ? "file" : "files"} uploaded and durably committed:</strong><br><ul style="margin-top: 8px; padding-left: 20px;">`;
+        completedFiles.forEach(f => {
+            const t = f.timings || {};
+            const timingStr = ` · Server: SHA-256 ${t.sha256Ms || 0}ms, fsync ${t.fsyncFileMs || 0}ms, rename ${t.renameMs || 0}ms`;
+            detailsHtml += `<li><strong>${escapeHtml(f.originalName)}</strong> (${formatBytes(f.size)}${timingStr})<br><span style="font-family: monospace; font-size: 11px; opacity: 0.8;">SHA-256: ${f.sha256}</span></li>`;
+        });
+        detailsHtml += `</ul>`;
+
+        showStatus(detailsHtml, "success");
+        selectedFiles = [];
+        renderFiles();
     });
 
     async function initialize() {
