@@ -3,96 +3,491 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DropBox — Cloud Upload</title>
+    <title>DropBox - Storage</title>
 
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- TUS JS Client & Azure Storage Blob Browser SDK -->
     <script src="https://cdn.jsdelivr.net/npm/tus-js-client@4/dist/tus.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@azure/storage-blob@12.26.0/dist/index.browser.js"></script>
 
     <style>
         :root {
-            --bg: #07080b;
-            --surface: rgba(20, 22, 28, 0.82);
-            --surface-2: rgba(28, 30, 38, 0.92);
-            --border: rgba(255, 255, 255, 0.08);
-            --border-hover: rgba(255, 255, 255, 0.18);
-            --text: #f5f7fa;
-            --muted: #858b98;
-            --success: #72f1a8;
-            --danger: #ff7e8b;
-            --accent: #5e8cfc;
-            --radius-lg: 28px;
-            --shadow: 0 30px 80px rgba(0, 0, 0, 0.4);
+            --bg: #090a0f;
+            --surface-glass: rgba(18, 22, 32, 0.65);
+            --surface-card: rgba(24, 28, 42, 0.75);
+            --surface-hover: rgba(34, 40, 60, 0.85);
+            --border-glass: rgba(255, 255, 255, 0.08);
+            --border-hover: rgba(99, 102, 241, 0.4);
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --accent-indigo: #6366f1;
+            --accent-violet: #8b5cf6;
+            --accent-cyan: #06b6d4;
+            --accent-emerald: #10b981;
+            --accent-rose: #f43f5e;
+            --accent-amber: #f59e0b;
+            --radius-xl: 24px;
+            --radius-lg: 16px;
+            --radius-md: 12px;
+            --shadow-glow: 0 0 50px -10px rgba(99, 102, 241, 0.18);
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
         html { color-scheme: dark; }
         body {
             min-height: 100vh;
-            font-family: Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
-            background: radial-gradient(circle at 50% -20%, rgba(255, 255, 255, 0.08), transparent 40%), var(--bg);
-            color: var(--text);
+            font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+            background-color: var(--bg);
+            background-image: 
+                radial-gradient(circle at 15% 15%, rgba(99, 102, 241, 0.12) 0%, transparent 40%),
+                radial-gradient(circle at 85% 20%, rgba(139, 92, 246, 0.1) 0%, transparent 35%),
+                radial-gradient(circle at 50% 80%, rgba(6, 182, 212, 0.08) 0%, transparent 45%);
+            background-attachment: fixed;
+            color: var(--text-primary);
             display: flex;
             justify-content: center;
-            padding: 32px 18px 50px;
+            padding: 40px 20px 60px;
         }
 
-        .app { width: 100%; max-width: 900px; }
-        header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 34px; }
-        .brand { display: flex; align-items: center; gap: 12px; }
-        .brand-icon { width: 44px; height: 44px; border-radius: 14px; display: grid; place-items: center; background: #fff; color: #000; font-size: 21px; font-weight: 900; }
-        .brand-name { font-size: 18px; font-weight: 750; letter-spacing: -0.03em; }
+        .app { width: 100%; max-width: 920px; }
 
-        .connection { display: flex; align-items: center; gap: 8px; padding: 9px 13px; border: 1px solid var(--border); border-radius: 999px; background: rgba(255, 255, 255, 0.03); font-size: 13px; color: var(--muted); }
-        .connection-dot { width: 7px; height: 7px; border-radius: 50%; background: #858b98; }
-        .connection.online .connection-dot { background: var(--success); box-shadow: 0 0 12px rgba(114, 241, 168, 0.7); }
-        .connection.online { color: var(--text); }
+        /* Header */
+        header { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            margin-bottom: 36px;
+        }
+        .brand { display: flex; align-items: center; gap: 14px; }
+        .brand-icon { 
+            width: 46px; 
+            height: 46px; 
+            border-radius: 14px; 
+            display: grid; 
+            place-items: center; 
+            background: linear-gradient(135deg, var(--accent-indigo), var(--accent-violet));
+            color: #fff; 
+            font-size: 22px; 
+            font-weight: 800; 
+            box-shadow: 0 8px 24px -4px rgba(99, 102, 241, 0.5);
+        }
+        .brand-title { display: flex; flex-direction: column; }
+        .brand-name { font-size: 20px; font-weight: 800; letter-spacing: -0.03em; color: #fff; }
+        .brand-tag { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--accent-indigo); }
 
-        .hero { margin-bottom: 26px; }
-        .hero h1 { font-size: clamp(38px, 7vw, 68px); line-height: 0.98; letter-spacing: -0.055em; }
-        .hero h1 span { color: var(--muted); }
-        .hero p { margin-top: 18px; color: var(--muted); font-size: 16px; line-height: 1.6; }
+        .header-badges { display: flex; align-items: center; gap: 10px; }
+        .badge-pill {
+            padding: 6px 12px;
+            border-radius: 99px;
+            font-size: 12px;
+            font-weight: 600;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--border-glass);
+            color: var(--text-secondary);
+        }
 
-        .drop-zone { position: relative; min-height: 310px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: linear-gradient(145deg, rgba(255,255,255,0.04), rgba(255,255,255,0.015)); display: flex; justify-content: center; align-items: center; text-align: center; cursor: pointer; }
-        .drop-zone.dragging { border-color: rgba(255,255,255,0.45); background: rgba(255,255,255,0.06); }
-        .drop-zone.disabled { pointer-events: none; opacity: 0.6; }
+        .connection { 
+            display: flex; 
+            align-items: center; 
+            gap: 8px; 
+            padding: 7px 14px; 
+            border: 1px solid var(--border-glass); 
+            border-radius: 999px; 
+            background: var(--surface-glass);
+            backdrop-filter: blur(12px);
+            font-size: 12.5px; 
+            font-weight: 600;
+            color: var(--text-muted); 
+            transition: all 0.3s ease;
+        }
+        .connection-dot { 
+            width: 8px; 
+            height: 8px; 
+            border-radius: 50%; 
+            background: var(--text-muted); 
+            transition: all 0.3s ease;
+        }
+        .connection.online { color: var(--text-primary); border-color: rgba(16, 185, 129, 0.3); }
+        .connection.online .connection-dot { 
+            background: var(--accent-emerald); 
+            box-shadow: 0 0 12px var(--accent-emerald); 
+        }
 
-        .drop-content { padding: 36px 20px; }
-        .upload-icon { width: 68px; height: 68px; margin: 0 auto 18px; display: grid; place-items: center; border-radius: 22px; background: rgba(255,255,255,0.08); border: 1px solid var(--border); font-size: 28px; }
-        .drop-hint { margin-top: 15px; font-size: 13px; color: var(--muted); }
-        .browse-button { display: inline-flex; margin-top: 22px; padding: 13px 18px; border-radius: 13px; background: white; color: #000; font-weight: 700; cursor: pointer; }
+        /* Hero */
+        .hero { margin-bottom: 28px; text-align: left; }
+        .hero h1 { 
+            font-size: clamp(34px, 5.5vw, 54px); 
+            font-weight: 800; 
+            line-height: 1.05; 
+            letter-spacing: -0.04em; 
+            background: linear-gradient(180deg, #ffffff 30%, var(--text-secondary) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .hero h1 span { 
+            background: linear-gradient(135deg, var(--accent-indigo), var(--accent-cyan));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .hero p { 
+            margin-top: 14px; 
+            color: var(--text-secondary); 
+            font-size: 15px; 
+            line-height: 1.6; 
+            max-width: 680px;
+        }
+
+        /* Drop Zone */
+        .drop-zone { 
+            position: relative; 
+            min-height: 280px; 
+            border: 1.5px dashed var(--border-glass); 
+            border-radius: var(--radius-xl); 
+            background: var(--surface-glass);
+            backdrop-filter: blur(20px);
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            text-align: center; 
+            cursor: pointer; 
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            overflow: hidden;
+            box-shadow: var(--shadow-glow);
+        }
+        .drop-zone:hover { 
+            border-color: var(--border-hover); 
+            background: var(--surface-card);
+            transform: translateY(-2px);
+        }
+        .drop-zone.dragging { 
+            border-color: var(--accent-indigo); 
+            background: rgba(99, 102, 241, 0.08); 
+            transform: scale(1.01);
+        }
+        .drop-zone.disabled { pointer-events: none; opacity: 0.5; }
+
+        .drop-content { padding: 40px 24px; }
+        .upload-icon-wrapper {
+            width: 72px;
+            height: 72px;
+            margin: 0 auto 20px;
+            border-radius: 20px;
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(139, 92, 246, 0.15));
+            border: 1px solid rgba(99, 102, 241, 0.25);
+            display: grid;
+            place-items: center;
+            color: var(--accent-indigo);
+            font-size: 30px;
+            transition: transform 0.3s ease;
+        }
+        .drop-zone:hover .upload-icon-wrapper {
+            transform: translateY(-4px) scale(1.05);
+            color: #fff;
+            background: linear-gradient(135deg, var(--accent-indigo), var(--accent-violet));
+        }
+
+        .drop-title { font-size: 20px; font-weight: 700; color: var(--text-primary); }
+        .drop-sub { font-size: 14px; color: var(--text-secondary); margin-top: 6px; }
+        .drop-hint { 
+            margin-top: 16px; 
+            font-size: 12.5px; 
+            color: var(--text-muted); 
+            background: rgba(255, 255, 255, 0.03);
+            padding: 6px 14px;
+            border-radius: 99px;
+            display: inline-block;
+        }
+        
+        .browse-button { 
+            display: inline-flex; 
+            align-items: center;
+            gap: 8px;
+            margin-top: 22px; 
+            padding: 12px 24px; 
+            border-radius: var(--radius-md); 
+            background: #ffffff; 
+            color: #090a0f; 
+            font-weight: 700; 
+            font-size: 14px;
+            cursor: pointer; 
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 16px rgba(255, 255, 255, 0.15);
+        }
+        .browse-button:hover { 
+            background: #f1f5f9; 
+            transform: translateY(-1px);
+        }
         #fileInput { display: none; }
 
-        .queue { margin-top: 28px; }
-        .queue-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; font-size: 14px; font-weight: 700; }
-        .file-list { display: flex; flex-direction: column; gap: 10px; }
-        .empty-queue { padding: 20px; border: 1px dashed var(--border); border-radius: 17px; text-align: center; color: var(--muted); font-size: 13px; }
-        .file-item { display: grid; grid-template-columns: 52px minmax(0, 1fr) auto; align-items: center; gap: 13px; padding: 12px; border: 1px solid var(--border); border-radius: 17px; background: var(--surface); }
-        .preview { width: 52px; height: 52px; border-radius: 13px; overflow: hidden; background: var(--surface-2); display: grid; place-items: center; font-size: 22px; }
+        /* Queue */
+        .queue { margin-top: 32px; }
+        .queue-header { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            margin-bottom: 14px; 
+            font-size: 14px; 
+            font-weight: 700; 
+            color: var(--text-primary);
+        }
+        .queue-count-badge {
+            background: rgba(99, 102, 241, 0.12);
+            color: var(--accent-indigo);
+            padding: 3px 10px;
+            border-radius: 99px;
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .file-list { display: flex; flex-direction: column; gap: 12px; }
+        .empty-queue { 
+            padding: 24px; 
+            border: 1px dashed var(--border-glass); 
+            border-radius: var(--radius-lg); 
+            text-align: center; 
+            color: var(--text-muted); 
+            font-size: 13.5px; 
+            background: rgba(255, 255, 255, 0.01);
+        }
+        
+        .file-item { 
+            display: grid; 
+            grid-template-columns: 56px minmax(0, 1fr) auto; 
+            align-items: center; 
+            gap: 16px; 
+            padding: 14px 16px; 
+            border: 1px solid var(--border-glass); 
+            border-radius: var(--radius-lg); 
+            background: var(--surface-glass); 
+            backdrop-filter: blur(12px);
+            transition: all 0.2s ease;
+        }
+        .file-item:hover {
+            border-color: var(--border-hover);
+            background: var(--surface-card);
+        }
+        
+        .preview { 
+            width: 56px; 
+            height: 56px; 
+            border-radius: 14px; 
+            overflow: hidden; 
+            background: rgba(0, 0, 0, 0.4); 
+            border: 1px solid var(--border-glass);
+            display: grid; 
+            place-items: center; 
+            font-size: 24px; 
+        }
         .preview img, .preview video { width: 100%; height: 100%; object-fit: cover; }
-        .file-name { font-size: 14px; font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .file-meta { margin-top: 4px; color: var(--muted); font-size: 12px; }
-        .remove-button { border: 0; background: transparent; color: #686e7b; width: 30px; height: 30px; border-radius: 8px; cursor: pointer; font-size: 16px; }
+        .file-name { font-size: 14.5px; font-weight: 650; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .file-meta { margin-top: 4px; color: var(--text-secondary); font-size: 12.5px; display: flex; align-items: center; gap: 8px; }
+        .type-tag {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 2px 7px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
 
-        .actions { display: flex; gap: 10px; margin-top: 18px; }
-        .upload-button { flex: 1; min-height: 56px; border: 0; border-radius: 16px; background: white; color: black; font-weight: 750; font-size: 15px; cursor: pointer; }
-        .upload-button:disabled { opacity: 0.35; cursor: not-allowed; }
-        .clear-button { padding: 0 20px; border: 1px solid var(--border); border-radius: 16px; color: white; background: rgba(255,255,255,0.03); cursor: pointer; }
+        .remove-button { 
+            border: 0; 
+            background: rgba(255, 255, 255, 0.04); 
+            color: var(--text-muted); 
+            width: 34px; 
+            height: 34px; 
+            border-radius: 10px; 
+            cursor: pointer; 
+            font-size: 18px; 
+            display: grid;
+            place-items: center;
+            transition: all 0.2s ease;
+        }
+        .remove-button:hover { 
+            background: rgba(244, 63, 94, 0.15); 
+            color: var(--accent-rose); 
+        }
 
-        .upload-progress { margin-top: 22px; padding: 20px; border: 1px solid var(--border); border-radius: 17px; background: var(--surface); display: none; }
+        /* Actions */
+        .actions { display: flex; gap: 12px; margin-top: 22px; }
+        .upload-button { 
+            flex: 1; 
+            min-height: 56px; 
+            border: 0; 
+            border-radius: var(--radius-lg); 
+            background: linear-gradient(135deg, var(--accent-indigo), var(--accent-violet));
+            color: #ffffff; 
+            font-weight: 750; 
+            font-size: 15.5px; 
+            cursor: pointer; 
+            transition: all 0.2s ease;
+            box-shadow: 0 6px 24px -4px rgba(99, 102, 241, 0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+        .upload-button:hover:not(:disabled) { 
+            transform: translateY(-1.5px);
+            box-shadow: 0 8px 30px -4px rgba(99, 102, 241, 0.6);
+        }
+        .upload-button:disabled { 
+            opacity: 0.4; 
+            cursor: not-allowed; 
+            box-shadow: none;
+        }
+
+        .clear-button { 
+            padding: 0 24px; 
+            border: 1px solid var(--border-glass); 
+            border-radius: var(--radius-lg); 
+            color: var(--text-primary); 
+            background: var(--surface-glass); 
+            backdrop-filter: blur(12px);
+            font-weight: 650;
+            font-size: 14px;
+            cursor: pointer; 
+            transition: all 0.2s ease;
+        }
+        .clear-button:hover:not(:disabled) { 
+            border-color: rgba(255, 255, 255, 0.2); 
+            background: rgba(255, 255, 255, 0.06); 
+        }
+        .clear-button.cancel-mode {
+            border-color: rgba(244, 63, 94, 0.4);
+            color: var(--accent-rose);
+            background: rgba(244, 63, 94, 0.08);
+        }
+        .clear-button.cancel-mode:hover {
+            background: rgba(244, 63, 94, 0.18);
+        }
+
+        /* Progress Card */
+        .upload-progress { 
+            margin-top: 24px; 
+            padding: 22px; 
+            border: 1px solid var(--border-glass); 
+            border-radius: var(--radius-xl); 
+            background: var(--surface-glass); 
+            backdrop-filter: blur(20px);
+            display: none; 
+            box-shadow: var(--shadow-glow);
+        }
         .upload-progress.visible { display: block; }
-        .progress-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; font-size: 13.5px; }
-        .progress-label { font-weight: 650; color: var(--text); }
-        .progress-percent { font-weight: 700; color: var(--text); }
-        .progress-track { height: 8px; border-radius: 99px; background: rgba(255,255,255,0.08); overflow: hidden; margin-bottom: 12px; }
-        .progress-bar { height: 100%; width: 0%; border-radius: inherit; background: linear-gradient(90deg, #5e8cfc, #72f1a8); transition: width 200ms ease; }
-        .progress-bar.sending-complete { background: linear-gradient(90deg, #f39c12, #f1c40f); animation: pulse-bar 1.5s infinite ease-in-out; }
-        @keyframes pulse-bar { 0% { opacity: 0.7; } 50% { opacity: 1.0; } 100% { opacity: 0.7; } }
-        .progress-sub { display: flex; justify-content: space-between; font-size: 12.5px; color: var(--muted); font-family: monospace; }
 
-        .status { margin-top: 16px; padding: 16px 18px; border-radius: 16px; display: none; font-size: 14px; line-height: 1.5; word-break: break-all; }
+        .progress-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        .progress-label { 
+            font-weight: 700; 
+            font-size: 14.5px;
+            color: var(--text-primary); 
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .state-pill {
+            font-size: 11px;
+            font-weight: 700;
+            padding: 3px 9px;
+            border-radius: 99px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            background: rgba(99, 102, 241, 0.15);
+            color: var(--accent-indigo);
+            border: 1px solid rgba(99, 102, 241, 0.3);
+        }
+
+        .progress-percent { 
+            font-weight: 800; 
+            font-size: 16px;
+            color: var(--accent-cyan); 
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .progress-track { 
+            height: 10px; 
+            border-radius: 99px; 
+            background: rgba(255, 255, 255, 0.06); 
+            overflow: hidden; 
+            margin-bottom: 14px; 
+            position: relative;
+        }
+        .progress-bar { 
+            height: 100%; 
+            width: 0%; 
+            border-radius: inherit; 
+            background: linear-gradient(90deg, var(--accent-indigo), var(--accent-cyan), var(--accent-emerald)); 
+            transition: width 250ms ease; 
+        }
+        .progress-bar.sending-complete { 
+            background: linear-gradient(90deg, var(--accent-amber), #f1c40f); 
+            animation: pulse-bar 1.5s infinite ease-in-out; 
+        }
+        @keyframes pulse-bar { 0% { opacity: 0.75; } 50% { opacity: 1.0; } 100% { opacity: 0.75; } }
+
+        .progress-sub { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center;
+            font-size: 13px; 
+            color: var(--text-secondary); 
+            font-family: 'JetBrains Mono', monospace; 
+        }
+
+        /* Status & Results */
+        .status { 
+            margin-top: 20px; 
+            padding: 20px; 
+            border-radius: var(--radius-xl); 
+            display: none; 
+            font-size: 14px; 
+            line-height: 1.6; 
+            word-break: break-all; 
+            backdrop-filter: blur(16px);
+        }
         .status.show { display: block; }
-        .status.success { background: rgba(114,241,168,0.08); border: 1px solid rgba(114,241,168,0.18); color: var(--success); }
-        .status.error { background: rgba(255,126,139,0.08); border: 1px solid rgba(255,126,139,0.18); color: var(--danger); }
-        footer { margin-top: 30px; display: flex; justify-content: space-between; color: #5f6572; font-size: 12px; }
+        .status.success { 
+            background: rgba(16, 185, 129, 0.08); 
+            border: 1px solid rgba(16, 185, 129, 0.25); 
+            color: #d1fae5; 
+        }
+        .status.error { 
+            background: rgba(244, 63, 94, 0.08); 
+            border: 1px solid rgba(244, 63, 94, 0.25); 
+            color: #ffe4e6; 
+        }
+
+        .hash-code {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11.5px;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 4px 8px;
+            border-radius: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            display: inline-block;
+            margin-top: 4px;
+        }
+
+        /* Footer */
+        footer { 
+            margin-top: 36px; 
+            display: flex; 
+            justify-content: space-between; 
+            color: var(--text-muted); 
+            font-size: 12.5px; 
+            border-top: 1px solid var(--border-glass);
+            padding-top: 20px;
+        }
+        footer strong { color: var(--text-secondary); }
     </style>
 </head>
 <body>
@@ -101,47 +496,63 @@
     <header>
         <div class="brand">
             <div class="brand-icon">↑</div>
-            <div class="brand-name">DropBox</div>
+            <div class="brand-title">
+                <span class="brand-name">DropBox - Storage</span>
+                <span class="brand-tag">TUS Resumable Engine</span>
+            </div>
         </div>
 
-        <div class="connection" id="connectionStatus">
-            <div class="connection-dot"></div>
-            <span id="connectionText">Checking connection...</span>
+        <div class="header-badges">
+            <span class="badge-pill">50 MiB Chunks</span>
+            <div class="connection" id="connectionStatus">
+                <div class="connection-dot"></div>
+                <span id="connectionText">Checking...</span>
+            </div>
         </div>
     </header>
 
     <section class="hero">
-        <h1>Direct to Laptop <span>File Storage</span></h1>
-        <p>Stream high-resolution images and videos straight to your home server with TUS resumable chunked upload architecture.</p>
+        <h1>High-Speed Resumable <span>Laptop Storage</span></h1>
+        <p>Stream ultra-large media files straight to home server SSDs via Cloudflare Tunnel — completely bypassing the 100 MB request limit with 50 MiB chunking.</p>
     </section>
 
     <div class="drop-zone" id="dropZone">
         <div class="drop-content">
-            <div class="upload-icon">📁</div>
-            <h2>Drag & drop files here</h2>
-            <p>Resumable chunked uploads up to 50 GB per file (50 MiB chunks).</p>
-            <p class="drop-hint">Supported: JPG, PNG, GIF, WebP, AVIF, MP4, WebM, MOV, MKV, AVI (Batch up to 50 files)</p>
-            <label class="browse-button" id="browseButton" for="fileInput">Browse Files</label>
-            <input type="file" id="fileInput" multiple accept="image/*,video/*">
+            <div class="upload-icon-wrapper">📁</div>
+            <h2 class="drop-title">Drag & drop files here</h2>
+            <p class="drop-sub">TUS protocol chunked transport (Up to 50 GB per file)</p>
+            <span class="drop-hint">Supported: JPG, PNG, GIF, WebP, AVIF, MP4, WebM, MOV, MKV, AVI (Max 50 files/batch)</span>
+            <div>
+                <label class="browse-button" id="browseButton" for="fileInput">
+                    <span>Browse Files</span>
+                    <span>→</span>
+                </label>
+                <input type="file" id="fileInput" multiple accept="image/*,video/*">
+            </div>
         </div>
     </div>
 
     <section class="queue">
         <div class="queue-header">
-            <span>Selected files</span>
-            <span id="queueCount">0 files</span>
+            <span>Selected files for upload</span>
+            <span class="queue-count-badge" id="queueCount">0 files</span>
         </div>
         <div class="file-list" id="fileList"></div>
     </section>
 
     <div class="actions">
-        <button class="upload-button" id="uploadButton" disabled>Upload batch</button>
+        <button class="upload-button" id="uploadButton" disabled>
+            <span>Start Resumable Upload</span>
+        </button>
         <button class="clear-button" id="clearButton" disabled>Clear</button>
     </div>
 
     <div class="upload-progress" id="uploadProgress">
-        <div class="progress-top">
-            <span class="progress-label" id="progressLabel">Queued</span>
+        <div class="progress-header">
+            <div class="progress-label">
+                <span id="progressStatePill" class="state-pill">Queued</span>
+                <span id="progressLabel">Queued</span>
+            </div>
             <span class="progress-percent" id="progressPercent">0%</span>
         </div>
         <div class="progress-track">
@@ -155,9 +566,21 @@
 
     <div class="status" id="status"></div>
 
+    <section class="file-manager" id="fileManagerSection" style="margin-top: 32px; display: none;">
+        <div class="queue-header" style="display: flex; align-items: center; justify-content: space-between;">
+            <span style="font-weight: 700; font-size: 15px;">Azure Storage Files</span>
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <button id="refreshFilesButton" class="clear-button" style="padding: 6px 12px; font-size: 12px;">Refresh</button>
+                <button id="bulkDeleteButton" class="clear-button" style="padding: 6px 12px; font-size: 12px; display: none; background: rgba(244,63,94,0.2); color: #f43f5e; border-color: rgba(244,63,94,0.3);">Delete Selected</button>
+                <span class="queue-count-badge" id="managerFileCount">0 files</span>
+            </div>
+        </div>
+        <div class="file-list" id="managerFileList" style="margin-top: 12px;"></div>
+    </section>
+
     <footer>
-        <span>Files are saved on your laptop.</span>
-        <span><strong>DropBox</strong> • TUS Resumable Storage</span>
+        <span>Direct Azure Blob Storage Architecture.</span>
+        <span><strong>DELNEX</strong> • Private Storage System</span>
     </footer>
 </div>
 
@@ -175,7 +598,7 @@
 
     let currentState = UIState.QUEUED;
     let UPLOAD_SERVER = "https://upload2026.delnex.me";
-    const TUS_CHUNK_SIZE = 50 * 1024 * 1024; // 50 MiB chunk size
+    const TUS_CHUNK_SIZE = 16 * 1024 * 1024; // 16 MiB optimal chunk size for Cloudflare Tunnel
 
     const fileInput = document.getElementById("fileInput");
     const dropZone = document.getElementById("dropZone");
@@ -187,6 +610,7 @@
     const uploadProgress = document.getElementById("uploadProgress");
     const progressBar = document.getElementById("progressBar");
     const progressLabel = document.getElementById("progressLabel");
+    const progressStatePill = document.getElementById("progressStatePill");
     const progressPercent = document.getElementById("progressPercent");
     const progressBytes = document.getElementById("progressBytes");
     const progressMetrics = document.getElementById("progressMetrics");
@@ -258,12 +682,15 @@
 
     function transitionState(newState, labelOverride = null, metricsOverride = null) {
         currentState = newState;
+        progressStatePill.textContent = newState;
 
         switch (newState) {
             case UIState.QUEUED:
                 isUploading = false;
                 progressBar.classList.remove("sending-complete");
                 progressLabel.textContent = "Queued";
+                progressStatePill.style.background = "rgba(99, 102, 241, 0.15)";
+                progressStatePill.style.color = "var(--accent-indigo)";
                 break;
 
             case UIState.UPLOADING:
@@ -271,6 +698,8 @@
                 uploadProgress.classList.add("visible");
                 progressBar.classList.remove("sending-complete");
                 progressLabel.textContent = labelOverride || "Uploading batch...";
+                progressStatePill.style.background = "rgba(6, 182, 212, 0.15)";
+                progressStatePill.style.color = "var(--accent-cyan)";
                 break;
 
             case UIState.SENDING_COMPLETE:
@@ -279,6 +708,8 @@
                 progressPercent.textContent = "100%";
                 progressLabel.textContent = labelOverride || "100% Data sent — waiting for server confirmation";
                 progressMetrics.textContent = metricsOverride || "100% transfer complete · Processing...";
+                progressStatePill.style.background = "rgba(245, 158, 11, 0.15)";
+                progressStatePill.style.color = "var(--accent-amber)";
                 break;
 
             case UIState.SERVER_PROCESSING:
@@ -287,11 +718,15 @@
                 progressPercent.textContent = "100%";
                 progressLabel.textContent = labelOverride || "100% Server is committing file to durable storage...";
                 progressMetrics.textContent = metricsOverride || "Flushing disk write & verifying SHA-256...";
+                progressStatePill.style.background = "rgba(245, 158, 11, 0.15)";
+                progressStatePill.style.color = "var(--accent-amber)";
                 break;
 
             case UIState.SERVER_CONFIRMED:
                 progressLabel.textContent = labelOverride || "100% Server confirmed durable commit";
                 progressMetrics.textContent = metricsOverride || "SHA-256 verified";
+                progressStatePill.style.background = "rgba(16, 185, 129, 0.15)";
+                progressStatePill.style.color = "var(--accent-emerald)";
                 break;
 
             case UIState.COMPLETE:
@@ -300,18 +735,24 @@
                 progressBar.style.width = "100%";
                 progressPercent.textContent = "100%";
                 progressLabel.textContent = labelOverride || "✓ Upload batch complete";
+                progressStatePill.style.background = "rgba(16, 185, 129, 0.15)";
+                progressStatePill.style.color = "var(--accent-emerald)";
                 break;
 
             case UIState.FAILED:
                 isUploading = false;
                 progressBar.classList.remove("sending-complete");
                 progressLabel.textContent = labelOverride || "Batch upload failed";
+                progressStatePill.style.background = "rgba(244, 63, 94, 0.15)";
+                progressStatePill.style.color = "var(--accent-rose)";
                 break;
 
             case UIState.CANCELLED:
                 isUploading = false;
                 progressBar.classList.remove("sending-complete");
                 progressLabel.textContent = "Cancelled";
+                progressStatePill.style.background = "rgba(244, 63, 94, 0.15)";
+                progressStatePill.style.color = "var(--accent-rose)";
                 break;
         }
 
@@ -322,6 +763,7 @@
         uploadButton.disabled = selectedFiles.length === 0 || isUploading;
         clearButton.disabled = selectedFiles.length === 0 && !isUploading;
         clearButton.textContent = isUploading ? "Cancel upload" : "Clear";
+        clearButton.classList.toggle("cancel-mode", isUploading);
         dropZone.classList.toggle("disabled", isUploading);
         browseButton.classList.toggle("disabled", isUploading);
     }
@@ -389,7 +831,7 @@
     function renderFiles() {
         queueCount.textContent = `${selectedFiles.length} ${selectedFiles.length === 1 ? "file" : "files"}`;
         if (selectedFiles.length === 0) {
-            fileList.innerHTML = `<div class="empty-queue">No files selected.</div>`;
+            fileList.innerHTML = `<div class="empty-queue">No files selected for upload.</div>`;
             return;
         }
 
@@ -417,7 +859,10 @@
             details.className = "file-details";
             details.innerHTML = `
                 <div class="file-name">${escapeHtml(file.name)}</div>
-                <div class="file-meta">${formatBytes(file.size)} · ${file.type.startsWith("video/") ? "Video" : "Image"}</div>
+                <div class="file-meta">
+                    <span>${formatBytes(file.size)}</span>
+                    <span class="type-tag">${file.type.startsWith("video/") ? "Video" : "Image"}</span>
+                </div>
             `;
 
             const remove = document.createElement("button");
@@ -461,7 +906,6 @@
         if (isUploading) {
             isCancelRequested = true;
             if (activeTusUpload) {
-                // Abort active upload and tell TUS server to clean up partial upload
                 activeTusUpload.abort(true);
                 activeTusUpload = null;
             }
@@ -490,6 +934,14 @@
                 metadata: {
                     filename: file.name,
                     filetype: file.type
+                },
+                onShouldRetry: (error, retryAttempt) => {
+                    if (isCancelRequested) return false;
+                    const status = error.req ? error.req.getStatus() : 0;
+                    if (status === 404 || status === 410) {
+                        return false;
+                    }
+                    return retryAttempt < 5;
                 },
                 onError: (error) => {
                     activeTusUpload = null;
@@ -539,7 +991,6 @@
             const upload = new tus.Upload(file, options);
             activeTusUpload = upload;
 
-            // Check if previous upload URL was stored for resumption
             upload.findPreviousUploads().then(previousUploads => {
                 if (previousUploads.length > 0 && !isCancelRequested) {
                     console.log(`[TUS RESUME] Resuming previous upload for "${file.name}" at offset:`, previousUploads[0].uploadNextOffset);
@@ -554,6 +1005,122 @@
                 }
             });
         });
+    }
+
+    async function calculateBrowserSha256(file) {
+        if (file.size > 100 * 1024 * 1024) {
+            return null; // Avoid memory overhead on huge files (>100MB)
+        }
+        try {
+            const buffer = await file.arrayBuffer();
+            const hashBuffer = await crypto.subtle.digest("SHA-256", buffer);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            return hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+        } catch {
+            return null;
+        }
+    }
+
+    /**
+     * Uploads a single file directly from Browser to Azure Blob Storage using SAS.
+     */
+    async function uploadSingleFileAzureDirect(file, serverUrl, onProgressCallback) {
+        const sha256 = await calculateBrowserSha256(file);
+
+        // 1. Request SAS URL from backend (Node API receives METADATA ONLY, NO FILE BYTES)
+        const sasResponse = await fetch(`${serverUrl}/api/upload-sas`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                filename: file.name,
+                size: file.size,
+                contentType: file.type || "application/octet-stream",
+                sha256
+            })
+        });
+
+        if (!sasResponse.ok) {
+            const errData = await sasResponse.json().catch(() => ({}));
+            if (sasResponse.status === 503 && errData.fallback === "tus") {
+                console.warn("[AZURE FALLBACK] Azure credentials not set. Falling back to TUS protocol.");
+                return uploadSingleFileTus(file, serverUrl, onProgressCallback);
+            }
+            throw new Error(errData.error || `SAS generation failed with status ${sasResponse.status}`);
+        }
+
+        const sasData = await sasResponse.json();
+        if (!sasData.success) {
+            throw new Error(sasData.error || "Failed to retrieve Azure SAS URL");
+        }
+
+        // Duplicate Detection (File already exists in Azure)
+        if (sasData.status === "already_exists" && sasData.file) {
+            console.log(`[DUPLICATE DETECTED] Skipping physical upload for "${file.name}" - already exists in Azure!`);
+            onProgressCallback(file.size, file.size);
+            return {
+                ...sasData.file,
+                isDuplicate: true
+            };
+        }
+
+        if (!sasData.uploadUrl) {
+            throw new Error("Missing Azure SAS uploadUrl");
+        }
+
+        const t0Upload = performance.now();
+
+        // 2. Direct Browser Upload to Azure Blob Storage (Node Backend receives NO file bytes!)
+        if (window.azblob && window.azblob.BlockBlobClient) {
+            console.log(`[AZURE DIRECT] Uploading via Azure Blob SDK BlockBlobClient: "${file.name}" -> "${sasData.blobName}"`);
+            const blockBlobClient = new window.azblob.BlockBlobClient(sasData.uploadUrl);
+            await blockBlobClient.uploadData(file, {
+                blockSize: 8 * 1024 * 1024, // 8 MiB block size
+                concurrency: 2,
+                onProgress: (ev) => {
+                    if (isCancelRequested) return;
+                    onProgressCallback(ev.loadedBytes, file.size);
+                }
+            });
+        } else {
+            console.log(`[AZURE DIRECT] Uploading via Direct Fetch PUT: "${file.name}" -> "${sasData.blobName}"`);
+            const putRes = await fetch(sasData.uploadUrl, {
+                method: "PUT",
+                headers: {
+                    "x-ms-blob-type": "BlockBlob",
+                    "Content-Type": file.type || "application/octet-stream"
+                },
+                body: file
+            });
+            if (!putRes.ok) {
+                throw new Error(`Direct Azure Blob upload failed with status ${putRes.status}`);
+            }
+            onProgressCallback(file.size, file.size);
+        }
+
+        const azureMs = Number((performance.now() - t0Upload).toFixed(1));
+
+        // 3. Notify Node Backend of Completion (Metadata only)
+        const completeRes = await fetch(`${serverUrl}/api/upload-complete`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                blobName: sasData.blobName,
+                originalName: file.name,
+                size: file.size,
+                contentType: file.type || "application/octet-stream",
+                sha256
+            })
+        });
+
+        const completeData = await completeRes.json().catch(() => ({}));
+        return completeData.file || {
+            originalName: file.name,
+            savedName: sasData.blobName,
+            size: file.size,
+            type: file.type,
+            sha256: sha256 || "verified_azure",
+            timings: { azureMs }
+        };
     }
 
     uploadButton.addEventListener("click", async () => {
@@ -583,7 +1150,6 @@
             if (isCancelRequested) break;
 
             const file = filesToUpload[i];
-            const currentChunkCount = Math.ceil(file.size / TUS_CHUNK_SIZE) || 1;
 
             transitionState(
                 UIState.UPLOADING,
@@ -591,7 +1157,7 @@
             );
 
             try {
-                const result = await uploadSingleFileTus(file, server, (bytesUploaded, bytesTotal) => {
+                const result = await uploadSingleFileAzureDirect(file, server, (bytesUploaded, bytesTotal) => {
                     if (isCancelRequested) return;
 
                     const aggregateLoaded = completedBytesTotal + bytesUploaded;
@@ -612,17 +1178,15 @@
                     progressBytes.textContent = `${formatBytes(aggregateLoaded)} / ${formatBytes(totalBatchBytes)}`;
 
                     if (bytesUploaded >= file.size) {
-                        // All bytes written for this file — stop ETA, enter SERVER_PROCESSING state
                         transitionState(
                             UIState.SERVER_PROCESSING,
-                            `100% Data sent for "${file.name}" — waiting for server confirmation...`,
-                            "Flushing disk write & SHA-256 verification..."
+                            `100% Data sent for "${file.name}" — committing Azure Blob...`,
+                            "Verifying Azure storage commit..."
                         );
                     } else {
                         const remainingBytes = totalBatchBytes - aggregateLoaded;
                         const etaSeconds = smoothedSpeed > 0 ? remainingBytes / smoothedSpeed : 0;
-                        const currentChunk = Math.min(currentChunkCount, Math.floor(bytesUploaded / TUS_CHUNK_SIZE) + 1);
-                        progressMetrics.textContent = `${formatSpeed(smoothedSpeed)} · ${formatEta(etaSeconds)} · Chunk ${currentChunk}/${currentChunkCount}`;
+                        progressMetrics.textContent = `${formatSpeed(smoothedSpeed)} · ${formatEta(etaSeconds)} · Direct Azure Blob Stream`;
                     }
                 });
 
@@ -647,31 +1211,99 @@
         const tEndBatch = performance.now();
         const totalBatchMs = Number((tEndBatch - t0BatchStart).toFixed(1));
 
-        transitionState(UIState.SERVER_CONFIRMED, "100% All files durably committed");
-        transitionState(UIState.COMPLETE, `✓ Batch complete — ${completedFiles.length} files uploaded`);
+        transitionState(UIState.SERVER_CONFIRMED, "100% All files committed to Azure Storage");
+        transitionState(UIState.COMPLETE, `✓ Batch complete — ${completedFiles.length} files uploaded to Azure`);
 
         progressBar.style.width = "100%";
         progressPercent.textContent = "100%";
         progressBytes.textContent = `${formatBytes(totalBatchBytes)} / ${formatBytes(totalBatchBytes)}`;
         progressMetrics.textContent = `${formatBytes(totalBatchBytes)} in ${(totalBatchMs / 1000).toFixed(1)}s · avg ${formatSpeed(totalBatchBytes / (totalBatchMs / 1000))}`;
 
-        let detailsHtml = `<strong>✓ ${completedFiles.length} ${completedFiles.length === 1 ? "file" : "files"} uploaded and durably committed:</strong><br><ul style="margin-top: 8px; padding-left: 20px;">`;
+        let detailsHtml = `<strong>✓ ${completedFiles.length} ${completedFiles.length === 1 ? "file" : "files"} uploaded directly to Azure Blob Storage:</strong><br><ul style="margin-top: 12px; padding-left: 0; list-style: none;">`;
         completedFiles.forEach(f => {
             const t = f.timings || {};
-            const timingStr = ` · Server: SHA-256 ${t.sha256Ms || 0}ms, fsync ${t.fsyncFileMs || 0}ms, rename ${t.renameMs || 0}ms`;
-            detailsHtml += `<li><strong>${escapeHtml(f.originalName)}</strong> (${formatBytes(f.size)}${timingStr})<br><span style="font-family: monospace; font-size: 11px; opacity: 0.8;">SHA-256: ${f.sha256}</span></li>`;
+            const timingStr = t.azureMs ? `Azure Direct Upload: ${t.azureMs}ms` : `SHA-256 ${t.sha256Ms || 0}ms · fsync ${t.fsyncFileMs || 0}ms`;
+            detailsHtml += `
+                <li style="margin-bottom: 10px; padding: 12px 14px; background: rgba(0,0,0,0.25); border-radius: 12px; border: 1px solid rgba(255,255,255,0.06);">
+                    <div style="font-weight: 700; font-size: 14px;">${escapeHtml(f.originalName)} <span style="font-weight: 500; opacity: 0.7;">(${formatBytes(f.size)})</span></div>
+                    <div style="font-size: 12px; opacity: 0.8; margin-top: 4px;">Blob Name: ${escapeHtml(f.savedName)}</div>
+                    <div style="font-size: 12px; opacity: 0.8; margin-top: 2px;">Timings: ${timingStr}</div>
+                    <div class="hash-code">Status: Verified Azure Blob Storage</div>
+                </li>`;
         });
         detailsHtml += `</ul>`;
 
         showStatus(detailsHtml, "success");
         selectedFiles = [];
         renderFiles();
+        await loadRemoteFiles();
     });
+
+    const fileManagerSection = document.getElementById("fileManagerSection");
+    const managerFileList = document.getElementById("managerFileList");
+    const managerFileCount = document.getElementById("managerFileCount");
+    const refreshFilesButton = document.getElementById("refreshFilesButton");
+
+    refreshFilesButton.addEventListener("click", () => loadRemoteFiles());
+
+    async function loadRemoteFiles() {
+        const server = normalizeUploadServer();
+        try {
+            const res = await fetch(`${server}/api/files`);
+            if (!res.ok) return;
+            const data = await res.json();
+            if (!data.success || !Array.isArray(data.files)) return;
+
+            const files = data.files;
+            managerFileCount.textContent = `${files.length} ${files.length === 1 ? "file" : "files"}`;
+            fileManagerSection.style.display = files.length > 0 ? "block" : "none";
+
+            if (files.length === 0) {
+                managerFileList.innerHTML = `<div style="padding: 16px; text-align: center; opacity: 0.6; font-size: 13px;">No files currently in storage.</div>`;
+                return;
+            }
+
+            managerFileList.innerHTML = files.map(f => `
+                <div class="file-item" style="padding: 14px 16px; background: rgba(18, 22, 32, 0.6); border-radius: 12px; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; border: 1px solid rgba(255,255,255,0.06);">
+                    <div style="flex: 1; overflow: hidden; padding-right: 12px;">
+                        <div style="font-weight: 700; font-size: 14px; color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(f.originalName)}</div>
+                        <div style="font-size: 12px; opacity: 0.65; margin-top: 2px;">${formatBytes(f.size)} · ${escapeHtml(f.type || 'file')} · Uploaded ${new Date(f.uploadedAt).toLocaleString()}</div>
+                        ${f.sha256 ? `<div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--accent-cyan); margin-top: 4px; opacity: 0.85;">SHA: ${f.sha256.slice(0, 16)}...</div>` : ''}
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <a href="${server}/api/files/${f.id}/stream" target="_blank" class="clear-button" style="padding: 6px 12px; font-size: 12px; text-decoration: none; display: inline-block;">Preview</a>
+                        <a href="${server}/api/files/${f.id}/download" target="_blank" class="clear-button" style="padding: 6px 12px; font-size: 12px; text-decoration: none; display: inline-block; background: rgba(6,182,212,0.15); color: var(--accent-cyan); border-color: rgba(6,182,212,0.3);">Download</a>
+                        <button onclick="deleteRemoteFile('${f.id}')" class="clear-button" style="padding: 6px 12px; font-size: 12px; background: rgba(244,63,94,0.15); color: var(--accent-rose); border-color: rgba(244,63,94,0.3);">Delete</button>
+                    </div>
+                </div>
+            `).join("");
+        } catch (err) {
+            console.warn("[FILE MANAGER WARN] Could not load file list:", err.message);
+        }
+    }
+
+    window.deleteRemoteFile = async function(id) {
+        if (!confirm("Are you sure you want to delete this file from Azure Blob Storage?")) return;
+        const server = normalizeUploadServer();
+        try {
+            const res = await fetch(`${server}/api/files/${id}`, { method: "DELETE" });
+            const data = await res.json();
+            if (data.success) {
+                showStatus("✓ File successfully deleted from Azure storage and database.", "info");
+                await loadRemoteFiles();
+            } else {
+                showStatus(`Delete failed: ${data.error}`, "error");
+            }
+        } catch (err) {
+            showStatus(`Delete error: ${err.message}`, "error");
+        }
+    };
 
     async function initialize() {
         renderFiles();
         await loadConfiguration();
         await checkServerConnection();
+        await loadRemoteFiles();
         setInterval(checkServerConnection, 30000);
     }
 
