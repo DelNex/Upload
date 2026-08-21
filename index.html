@@ -373,7 +373,7 @@
         selectedFiles.forEach(file => map.set(`${file.name}-${file.size}`, file));
         newFiles.forEach(file => map.set(`${file.name}-${file.size}`, file));
 
-        selectedFiles = Array.from(map.values()).slice(0, 200); // Allow up to 200 files per batch
+        selectedFiles = Array.from(map.values()).slice(0, 200);
         renderFiles();
         transitionState(UIState.QUEUED);
     }
@@ -570,7 +570,7 @@
                 selectedFiles = [];
                 renderFiles();
             } else {
-                let message = "Upload failed.";
+                let message = `Upload failed (HTTP ${xhr.status}).`;
                 try {
                     const response = JSON.parse(xhr.responseText);
                     message = response.error || message;
@@ -584,7 +584,7 @@
         xhr.addEventListener("error", () => {
             currentXhr = null;
             transitionState(UIState.FAILED);
-            showStatus("Connection failed. Check Cloudflare Tunnel and the laptop server.", "error");
+            showStatus(`Connection/CORS error reaching server (${escapeHtml(server)}). Check Cloudflare Tunnel and laptop backend process.`, "error");
         });
 
         xhr.addEventListener("abort", () => {
