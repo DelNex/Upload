@@ -1,0 +1,1366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>DropBox — Local Upload</title>
+
+    <style>
+        :root {
+            --bg: #07080b;
+            --surface: rgba(20, 22, 28, 0.8);
+            --surface-2: rgba(28, 30, 38, 0.9);
+            --border: rgba(255, 255, 255, 0.08);
+            --border-hover: rgba(255, 255, 255, 0.18);
+
+            --text: #f5f7fa;
+            --muted: #858b98;
+
+            --accent: #ffffff;
+            --accent-text: #090a0d;
+
+            --success: #72f1a8;
+            --danger: #ff7e8b;
+
+            --radius-lg: 28px;
+            --radius-md: 18px;
+
+            --shadow:
+                0 30px 80px rgba(0, 0, 0, 0.4);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html {
+            color-scheme: dark;
+        }
+
+        body {
+            min-height: 100vh;
+
+            font-family:
+                Inter,
+                ui-sans-serif,
+                system-ui,
+                -apple-system,
+                BlinkMacSystemFont,
+                "Segoe UI",
+                sans-serif;
+
+            background:
+                radial-gradient(
+                    circle at 50% -20%,
+                    rgba(255, 255, 255, 0.08),
+                    transparent 40%
+                ),
+                radial-gradient(
+                    circle at 0% 100%,
+                    rgba(100, 120, 255, 0.06),
+                    transparent 30%
+                ),
+                var(--bg);
+
+            color: var(--text);
+
+            display: flex;
+            justify-content: center;
+
+            padding: 32px 18px 50px;
+        }
+
+        button,
+        label {
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .app {
+            width: 100%;
+            max-width: 900px;
+        }
+
+        /* HEADER */
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+
+            margin-bottom: 34px;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .brand-icon {
+            width: 44px;
+            height: 44px;
+
+            border-radius: 14px;
+
+            display: grid;
+            place-items: center;
+
+            background: #fff;
+            color: #000;
+
+            font-size: 21px;
+            font-weight: 900;
+
+            box-shadow:
+                0 10px 30px rgba(255, 255, 255, 0.08);
+        }
+
+        .brand-name {
+            font-size: 18px;
+            font-weight: 750;
+            letter-spacing: -0.03em;
+        }
+
+        .connection {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+
+            padding: 9px 13px;
+
+            border: 1px solid var(--border);
+            border-radius: 999px;
+
+            background: rgba(255, 255, 255, 0.03);
+
+            font-size: 13px;
+            color: var(--muted);
+        }
+
+        .connection-dot {
+            width: 7px;
+            height: 7px;
+
+            border-radius: 50%;
+
+            background: var(--success);
+
+            box-shadow:
+                0 0 12px rgba(114, 241, 168, 0.7);
+        }
+
+        /* HERO */
+
+        .hero {
+            margin-bottom: 26px;
+        }
+
+        .hero h1 {
+            font-size: clamp(38px, 7vw, 68px);
+            line-height: 0.98;
+            letter-spacing: -0.055em;
+
+            max-width: 720px;
+        }
+
+        .hero h1 span {
+            color: var(--muted);
+        }
+
+        .hero p {
+            margin-top: 18px;
+
+            color: var(--muted);
+
+            font-size: 16px;
+            line-height: 1.6;
+
+            max-width: 570px;
+        }
+
+        /* DROP AREA */
+
+        .drop-zone {
+            position: relative;
+
+            min-height: 310px;
+
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+
+            background:
+                linear-gradient(
+                    145deg,
+                    rgba(255,255,255,0.04),
+                    rgba(255,255,255,0.015)
+                );
+
+            display: flex;
+            justify-content: center;
+            align-items: center;
+
+            text-align: center;
+
+            overflow: hidden;
+
+            box-shadow: var(--shadow);
+
+            cursor: pointer;
+
+            transition:
+                border-color 180ms ease,
+                background 180ms ease,
+                transform 180ms ease;
+        }
+
+        .drop-zone::before {
+            content: "";
+
+            position: absolute;
+            inset: 0;
+
+            background-image:
+                linear-gradient(
+                    rgba(255,255,255,0.025) 1px,
+                    transparent 1px
+                ),
+                linear-gradient(
+                    90deg,
+                    rgba(255,255,255,0.025) 1px,
+                    transparent 1px
+                );
+
+            background-size: 32px 32px;
+
+            mask-image:
+                linear-gradient(
+                    to bottom,
+                    black,
+                    transparent 90%
+                );
+
+            pointer-events: none;
+        }
+
+        .drop-zone:hover {
+            border-color: var(--border-hover);
+            transform: translateY(-2px);
+        }
+
+        .drop-zone.dragging {
+            border-color: rgba(255,255,255,0.45);
+            background:
+                rgba(255,255,255,0.06);
+
+            transform: scale(1.01);
+        }
+
+        .drop-content {
+            position: relative;
+            z-index: 1;
+
+            padding: 36px 20px;
+        }
+
+        .upload-icon {
+            width: 68px;
+            height: 68px;
+
+            margin: 0 auto 18px;
+
+            display: grid;
+            place-items: center;
+
+            border-radius: 22px;
+
+            background:
+                rgba(255,255,255,0.08);
+
+            border: 1px solid var(--border);
+
+            font-size: 28px;
+        }
+
+        .drop-content h2 {
+            font-size: 24px;
+            letter-spacing: -0.03em;
+        }
+
+        .drop-content p {
+            color: var(--muted);
+            margin-top: 8px;
+            line-height: 1.5;
+        }
+
+        .drop-hint {
+            margin-top: 15px !important;
+            font-size: 13px;
+        }
+
+        .browse-button {
+            display: inline-flex;
+
+            margin-top: 22px;
+
+            padding: 13px 18px;
+
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 13px;
+
+            background: white;
+            color: #000;
+
+            font-size: 14px;
+            font-weight: 700;
+
+            cursor: pointer;
+
+            transition:
+                transform 150ms ease,
+                opacity 150ms ease;
+        }
+
+        .browse-button:hover {
+            transform: translateY(-1px);
+        }
+
+        .browse-button:active {
+            transform: scale(0.98);
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        /* QUEUE */
+
+        .queue {
+            margin-top: 28px;
+        }
+
+        .queue-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+
+            margin-bottom: 12px;
+        }
+
+        .queue-title {
+            font-size: 14px;
+            font-weight: 700;
+        }
+
+        .queue-count {
+            color: var(--muted);
+            font-size: 13px;
+        }
+
+        .file-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .file-item {
+            display: grid;
+
+            grid-template-columns:
+                52px
+                minmax(0, 1fr)
+                auto;
+
+            align-items: center;
+
+            gap: 13px;
+
+            padding: 12px;
+
+            border: 1px solid var(--border);
+            border-radius: 17px;
+
+            background: var(--surface);
+
+            backdrop-filter: blur(15px);
+        }
+
+        .preview {
+            width: 52px;
+            height: 52px;
+
+            border-radius: 13px;
+
+            overflow: hidden;
+
+            background: var(--surface-2);
+
+            display: grid;
+            place-items: center;
+
+            font-size: 22px;
+
+            flex-shrink: 0;
+        }
+
+        .preview img,
+        .preview video {
+            width: 100%;
+            height: 100%;
+
+            object-fit: cover;
+        }
+
+        .file-details {
+            min-width: 0;
+        }
+
+        .file-name {
+            font-size: 14px;
+            font-weight: 650;
+
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .file-meta {
+            margin-top: 4px;
+
+            color: var(--muted);
+
+            font-size: 12px;
+        }
+
+        .file-status {
+            font-size: 12px;
+            color: var(--muted);
+            white-space: nowrap;
+        }
+
+        .file-status.done {
+            color: var(--success);
+        }
+
+        .remove-button {
+            border: 0;
+            background: transparent;
+
+            color: #686e7b;
+
+            width: 30px;
+            height: 30px;
+
+            border-radius: 8px;
+
+            cursor: pointer;
+
+            font-size: 16px;
+        }
+
+        .remove-button:hover {
+            color: white;
+            background: rgba(255,255,255,0.07);
+        }
+
+        /* ACTIONS */
+
+        .actions {
+            display: flex;
+            gap: 10px;
+
+            margin-top: 18px;
+        }
+
+        .upload-button {
+            flex: 1;
+
+            min-height: 56px;
+
+            border: 0;
+            border-radius: 16px;
+
+            background: white;
+            color: black;
+
+            font-weight: 750;
+            font-size: 15px;
+
+            cursor: pointer;
+
+            transition:
+                transform 150ms ease,
+                opacity 150ms ease;
+        }
+
+        .upload-button:hover:not(:disabled) {
+            transform: translateY(-1px);
+        }
+
+        .upload-button:active:not(:disabled) {
+            transform: scale(0.99);
+        }
+
+        .upload-button:disabled {
+            opacity: 0.35;
+            cursor: not-allowed;
+        }
+
+        .clear-button {
+            padding: 0 20px;
+
+            border: 1px solid var(--border);
+            border-radius: 16px;
+
+            color: white;
+            background: rgba(255,255,255,0.03);
+
+            cursor: pointer;
+        }
+
+        /* PROGRESS */
+
+        .upload-progress {
+            margin-top: 22px;
+
+            padding: 18px;
+
+            border: 1px solid var(--border);
+            border-radius: 17px;
+
+            background: var(--surface);
+
+            display: none;
+        }
+
+        .upload-progress.visible {
+            display: block;
+        }
+
+        .progress-top {
+            display: flex;
+            justify-content: space-between;
+
+            margin-bottom: 12px;
+
+            font-size: 13px;
+        }
+
+        .progress-percent {
+            color: var(--muted);
+        }
+
+        .progress-track {
+            height: 7px;
+
+            border-radius: 99px;
+
+            background: rgba(255,255,255,0.08);
+
+            overflow: hidden;
+        }
+
+        .progress-bar {
+            height: 100%;
+
+            width: 0%;
+
+            border-radius: inherit;
+
+            background: white;
+
+            transition: width 150ms ease;
+        }
+
+        /* STATUS */
+
+        .status {
+            margin-top: 16px;
+
+            padding: 16px 18px;
+
+            border-radius: 16px;
+
+            display: none;
+
+            font-size: 14px;
+        }
+
+        .status.show {
+            display: block;
+        }
+
+        .status.success {
+            background: rgba(114,241,168,0.08);
+            border: 1px solid rgba(114,241,168,0.18);
+            color: var(--success);
+        }
+
+        .status.error {
+            background: rgba(255,126,139,0.08);
+            border: 1px solid rgba(255,126,139,0.18);
+            color: var(--danger);
+        }
+
+        /* FOOTER */
+
+        footer {
+            margin-top: 30px;
+
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+
+            color: #5f6572;
+
+            font-size: 12px;
+        }
+
+        footer strong {
+            color: #808694;
+        }
+
+        code {
+            font-family:
+                "SFMono-Regular",
+                Consolas,
+                monospace;
+        }
+
+        /* MOBILE */
+
+        @media (max-width: 620px) {
+            body {
+                padding: 18px 13px 35px;
+            }
+
+            header {
+                margin-bottom: 28px;
+            }
+
+            .connection {
+                display: none;
+            }
+
+            .hero {
+                margin-bottom: 22px;
+            }
+
+            .hero h1 {
+                font-size: 42px;
+            }
+
+            .hero p {
+                font-size: 14px;
+            }
+
+            .drop-zone {
+                min-height: 275px;
+                border-radius: 23px;
+            }
+
+            .drop-content {
+                padding: 30px 16px;
+            }
+
+            .upload-icon {
+                width: 60px;
+                height: 60px;
+            }
+
+            .drop-content h2 {
+                font-size: 21px;
+            }
+
+            .actions {
+                flex-direction: column;
+            }
+
+            .clear-button {
+                min-height: 50px;
+            }
+
+            footer {
+                flex-direction: column;
+                gap: 7px;
+                text-align: center;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="app">
+
+    <header>
+        <div class="brand">
+            <div class="brand-icon">↓</div>
+
+            <div class="brand-name">
+                DropBox
+            </div>
+        </div>
+
+        <div class="connection">
+            <span class="connection-dot"></span>
+            Website connection
+        </div>
+    </header>
+
+
+    <section class="hero">
+        <h1>
+            Send files
+            <span>straight here.</span>
+        </h1>
+
+        <p>
+            Upload photos and videos from your phone or another
+            computer directly to this laptop. No cloud required.
+        </p>
+    </section>
+
+
+    <div
+        class="drop-zone"
+        id="dropZone"
+    >
+        <div class="drop-content">
+
+            <div class="upload-icon">
+                ↑
+            </div>
+
+            <h2>
+                Drop your files here
+            </h2>
+
+            <p>
+                Photos, videos and more.
+            </p>
+
+            <label class="browse-button">
+                Browse files
+
+                <input
+                    type="file"
+                    id="fileInput"
+                    multiple
+                    accept="image/*,video/*"
+                >
+            </label>
+
+            <p class="drop-hint">
+                You can also drag and drop files.
+            </p>
+
+        </div>
+    </div>
+
+
+    <section class="queue">
+
+        <div class="queue-header">
+
+            <span class="queue-title">
+                Upload queue
+            </span>
+
+            <span
+                class="queue-count"
+                id="queueCount"
+            >
+                0 files
+            </span>
+
+        </div>
+
+        <div
+            class="file-list"
+            id="fileList"
+        ></div>
+
+    </section>
+
+
+    <div class="actions">
+
+        <button
+            class="upload-button"
+            id="uploadButton"
+            disabled
+        >
+            Upload files
+        </button>
+
+        <button
+            class="clear-button"
+            id="clearButton"
+        >
+            Clear
+        </button>
+
+    </div>
+
+
+    <div
+        class="upload-progress"
+        id="uploadProgress"
+    >
+
+        <div class="progress-top">
+
+            <span id="progressLabel">
+                Uploading...
+            </span>
+
+            <span
+                class="progress-percent"
+                id="progressPercent"
+            >
+                0%
+            </span>
+
+        </div>
+
+        <div class="progress-track">
+
+            <div
+                class="progress-bar"
+                id="progressBar"
+            ></div>
+
+        </div>
+
+    </div>
+
+
+    <div
+        class="status"
+        id="status"
+    ></div>
+
+
+    <footer>
+
+        <span>
+            Files are saved locally on this laptop.
+        </span>
+
+        <span>
+            <strong>DropBox</strong> • Local only
+        </span>
+
+    </footer>
+
+</div>
+
+
+<script>
+
+    const fileInput =
+        document.getElementById("fileInput");
+
+    const dropZone =
+        document.getElementById("dropZone");
+
+    const fileList =
+        document.getElementById("fileList");
+
+    const uploadButton =
+        document.getElementById("uploadButton");
+
+    const clearButton =
+        document.getElementById("clearButton");
+
+    const queueCount =
+        document.getElementById("queueCount");
+
+    const uploadProgress =
+        document.getElementById("uploadProgress");
+
+    const progressBar =
+        document.getElementById("progressBar");
+
+    const progressLabel =
+        document.getElementById("progressLabel");
+
+    const progressPercent =
+        document.getElementById("progressPercent");
+
+    const status =
+        document.getElementById("status");
+
+
+    let selectedFiles = [];
+
+
+    function formatBytes(bytes) {
+
+        if (bytes === 0) {
+            return "0 Bytes";
+        }
+
+        const units = [
+            "Bytes",
+            "KB",
+            "MB",
+            "GB",
+            "TB"
+        ];
+
+        const index =
+            Math.floor(
+                Math.log(bytes) / Math.log(1024)
+            );
+
+        return `${(
+            bytes /
+            Math.pow(1024, index)
+        ).toFixed(index === 0 ? 0 : 1)} ${units[index]}`;
+    }
+
+
+    function isValidFile(file) {
+
+        return (
+            file.type.startsWith("image/") ||
+            file.type.startsWith("video/")
+        );
+    }
+
+
+    function addFiles(files) {
+
+        const incoming =
+            Array.from(files)
+                .filter(isValidFile);
+
+        selectedFiles.push(...incoming);
+
+        renderFiles();
+    }
+
+
+    function removeFile(index) {
+
+        selectedFiles.splice(index, 1);
+
+        renderFiles();
+    }
+
+
+    function renderFiles() {
+
+        fileList.innerHTML = "";
+
+        queueCount.textContent =
+            `${selectedFiles.length} ${
+                selectedFiles.length === 1
+                    ? "file"
+                    : "files"
+            }`;
+
+        uploadButton.disabled =
+            selectedFiles.length === 0;
+
+
+        selectedFiles.forEach(
+            (file, index) => {
+
+                const item =
+                    document.createElement("div");
+
+                item.className = "file-item";
+
+
+                const preview =
+                    document.createElement("div");
+
+                preview.className =
+                    "preview";
+
+
+                if (
+                    file.type.startsWith("image/")
+                ) {
+
+                    const image =
+                        document.createElement("img");
+
+                    image.src =
+                        URL.createObjectURL(file);
+
+                    image.alt =
+                        "";
+
+                    preview.appendChild(image);
+
+                } else {
+
+                    const video =
+                        document.createElement("video");
+
+                    video.src =
+                        URL.createObjectURL(file);
+
+                    video.muted = true;
+
+                    preview.appendChild(video);
+                }
+
+
+                const details =
+                    document.createElement("div");
+
+                details.className =
+                    "file-details";
+
+                details.innerHTML = `
+                    <div class="file-name">
+                        ${escapeHtml(file.name)}
+                    </div>
+
+                    <div class="file-meta">
+                        ${formatBytes(file.size)}
+                        ·
+                        ${
+                            file.type.startsWith("video/")
+                                ? "Video"
+                                : "Image"
+                        }
+                    </div>
+                `;
+
+
+                const remove =
+                    document.createElement("button");
+
+                remove.className =
+                    "remove-button";
+
+                remove.innerHTML =
+                    "×";
+
+                remove.title =
+                    "Remove file";
+
+                remove.addEventListener(
+                    "click",
+                    () => removeFile(index)
+                );
+
+
+                item.appendChild(preview);
+                item.appendChild(details);
+                item.appendChild(remove);
+
+                fileList.appendChild(item);
+            }
+        );
+    }
+
+
+    function escapeHtml(text) {
+
+        const div =
+            document.createElement("div");
+
+        div.textContent = text;
+
+        return div.innerHTML;
+    }
+
+
+    function showStatus(
+        message,
+        type
+    ) {
+
+        status.textContent =
+            message;
+
+        status.className =
+            `status show ${type}`;
+    }
+
+
+    function clearStatus() {
+
+        status.className =
+            "status";
+
+        status.textContent =
+            "";
+    }
+
+
+    fileInput.addEventListener(
+        "change",
+        event => {
+
+            addFiles(
+                event.target.files
+            );
+
+            fileInput.value = "";
+        }
+    );
+
+
+    dropZone.addEventListener(
+        "dragover",
+        event => {
+
+            event.preventDefault();
+
+            dropZone.classList.add(
+                "dragging"
+            );
+        }
+    );
+
+
+    dropZone.addEventListener(
+        "dragleave",
+        event => {
+
+            if (
+                event.relatedTarget &&
+                dropZone.contains(
+                    event.relatedTarget
+                )
+            ) {
+                return;
+            }
+
+            dropZone.classList.remove(
+                "dragging"
+            );
+        }
+    );
+
+
+    dropZone.addEventListener(
+        "drop",
+        event => {
+
+            event.preventDefault();
+
+            dropZone.classList.remove(
+                "dragging"
+            );
+
+            addFiles(
+                event.dataTransfer.files
+            );
+        }
+    );
+
+
+    clearButton.addEventListener(
+        "click",
+        () => {
+
+            selectedFiles = [];
+
+            renderFiles();
+
+            clearStatus();
+
+            uploadProgress.classList.remove(
+                "visible"
+            );
+
+            progressBar.style.width =
+                "0%";
+
+            progressPercent.textContent =
+                "0%";
+        }
+    );
+
+
+    uploadButton.addEventListener(
+        "click",
+        () => {
+
+            if (
+                selectedFiles.length === 0
+            ) {
+                return;
+            }
+
+
+            const formData =
+                new FormData();
+
+
+            selectedFiles.forEach(
+                file => {
+
+                    formData.append(
+                        "files",
+                        file
+                    );
+                }
+            );
+
+
+            const xhr =
+                new XMLHttpRequest();
+
+
+            xhr.open(
+                "POST",
+                "/upload"
+            );
+
+
+            uploadProgress.classList.add(
+                "visible"
+            );
+
+            uploadButton.disabled =
+                true;
+
+            clearButton.disabled =
+                true;
+
+            clearStatus();
+
+
+            xhr.upload.addEventListener(
+                "progress",
+                event => {
+
+                    if (
+                        !event.lengthComputable
+                    ) {
+                        return;
+                    }
+
+
+                    const percent =
+                        Math.round(
+                            (
+                                event.loaded /
+                                event.total
+                            ) * 100
+                        );
+
+
+                    progressBar.style.width =
+                        `${percent}%`;
+
+                    progressPercent.textContent =
+                        `${percent}%`;
+
+                    progressLabel.textContent =
+                        "Uploading...";
+                }
+            );
+
+
+            xhr.addEventListener(
+                "load",
+                () => {
+
+                    uploadButton.disabled =
+                        false;
+
+                    clearButton.disabled =
+                        false;
+
+
+                    if (
+                        xhr.status >= 200 &&
+                        xhr.status < 300
+                    ) {
+
+                        let response;
+
+                        try {
+
+                            response =
+                                JSON.parse(
+                                    xhr.responseText
+                                );
+
+                        } catch {
+
+                            response = {
+                                files: []
+                            };
+                        }
+
+
+                        progressBar.style.width =
+                            "100%";
+
+                        progressPercent.textContent =
+                            "100%";
+
+                        progressLabel.textContent =
+                            "Complete";
+
+
+                        showStatus(
+                            `✓ ${
+                                response.files?.length ||
+                                selectedFiles.length
+                            } ${
+                                selectedFiles.length === 1
+                                    ? "file"
+                                    : "files"
+                            } uploaded successfully.`,
+                            "success"
+                        );
+
+
+                        selectedFiles = [];
+
+                        renderFiles();
+
+                    } else {
+
+                        showStatus(
+                            "Upload failed. Please try again.",
+                            "error"
+                        );
+                    }
+                }
+            );
+
+
+            xhr.addEventListener(
+                "error",
+                () => {
+
+                    uploadButton.disabled =
+                        false;
+
+                    clearButton.disabled =
+                        false;
+
+                    showStatus(
+                        "Connection failed. Make sure the laptop server is running.",
+                        "error"
+                    );
+                }
+            );
+
+
+            xhr.send(
+                formData
+            );
+        }
+    );
+
+</script>
+
+</body>
+</html>
