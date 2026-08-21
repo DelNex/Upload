@@ -75,7 +75,6 @@
         .upload-button:disabled { opacity: 0.35; cursor: not-allowed; }
         .clear-button { padding: 0 20px; border: 1px solid var(--border); border-radius: 16px; color: white; background: rgba(255,255,255,0.03); cursor: pointer; }
 
-        /* Progress UI & State Machine */
         .upload-progress { margin-top: 22px; padding: 20px; border: 1px solid var(--border); border-radius: 17px; background: var(--surface); display: none; }
         .upload-progress.visible { display: block; }
         .progress-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; font-size: 13.5px; }
@@ -118,8 +117,8 @@
         <div class="drop-content">
             <div class="upload-icon">📁</div>
             <h2>Drag & drop files here</h2>
-            <p>Upload photos and videos up to 2 GB per file.</p>
-            <p class="drop-hint">Supported: JPG, PNG, GIF, WebP, AVIF, MP4, WebM, MOV, MKV, AVI</p>
+            <p>Upload photos and videos up to 50 GB per file.</p>
+            <p class="drop-hint">Supported: JPG, PNG, GIF, WebP, AVIF, MP4, WebM, MOV, MKV, AVI (Batch up to 200 files)</p>
             <label class="browse-button" id="browseButton" for="fileInput">Browse Files</label>
             <input type="file" id="fileInput" multiple accept="image/*,video/*">
         </div>
@@ -134,7 +133,7 @@
     </section>
 
     <div class="actions">
-        <button class="upload-button" id="uploadButton" disabled>Upload files</button>
+        <button class="upload-button" id="uploadButton" disabled>Upload batch</button>
         <button class="clear-button" id="clearButton" disabled>Clear</button>
     </div>
 
@@ -161,11 +160,6 @@
 </div>
 
 <script>
-    /*
-     * Explicit State Machine:
-     * QUEUED -> UPLOADING -> SENDING_COMPLETE -> SERVER_PROCESSING -> SERVER_CONFIRMED -> COMPLETE
-     * (or FAILED / CANCELLED)
-     */
     const UIState = {
         QUEUED: "QUEUED",
         UPLOADING: "UPLOADING",
@@ -178,7 +172,7 @@
     };
 
     let currentState = UIState.QUEUED;
-    let UPLOAD_SERVER = "https://upload2026.delnex.me"; // Default fallback to production backend
+    let UPLOAD_SERVER = "https://upload2026.delnex.me";
 
     const fileInput = document.getElementById("fileInput");
     const dropZone = document.getElementById("dropZone");
@@ -199,10 +193,9 @@
 
     let selectedFiles = [];
     let isUploading = false;
-    let serverOnline = true; // Default true so upload button is usable
+    let serverOnline = true;
     let currentXhr = null;
 
-    // Timestamps
     let T0_sendStart = 0;
     let T1_firstProgress = 0;
     let T2_upload100 = 0;
@@ -210,7 +203,7 @@
 
     let lastProgressTime = 0;
     let lastProgressBytes = 0;
-    let smoothedSpeed = 0; // Exponential Moving Average (EMA alpha = 0.3)
+    let smoothedSpeed = 0;
 
     function formatBytes(bytes) {
         if (bytes === 0) return "0 Bytes";
@@ -278,7 +271,7 @@
                 isUploading = true;
                 uploadProgress.classList.add("visible");
                 progressBar.classList.remove("sending-complete");
-                progressLabel.textContent = "Uploading...";
+                progressLabel.textContent = "Uploading batch...";
                 break;
 
             case UIState.SENDING_COMPLETE:
@@ -286,20 +279,20 @@
                 progressBar.classList.add("sending-complete");
                 progressPercent.textContent = "100%";
                 progressLabel.textContent = "100% Data sent — waiting for server confirmation";
-                progressMetrics.textContent = "Network payload complete · Processing...";
+                progressMetrics.textContent = "Batch payload complete · Processing...";
                 break;
 
             case UIState.SERVER_PROCESSING:
                 progressBar.style.width = "100%";
                 progressBar.classList.add("sending-complete");
                 progressPercent.textContent = "100%";
-                progressLabel.textContent = "100% Server is committing your file...";
-                progressMetrics.textContent = "Flushing disk write & SHA-256 integrity check...";
+                progressLabel.textContent = "100% Server is committing your batch...";
+                progressMetrics.textContent = "Flushing disk writes & SHA-256 integrity checks...";
                 break;
 
             case UIState.SERVER_CONFIRMED:
                 progressLabel.textContent = "100% Server confirmed durable commit";
-                progressMetrics.textContent = "SHA-256 match verified";
+                progressMetrics.textContent = "SHA-256 matches verified";
                 break;
 
             case UIState.COMPLETE:
@@ -307,13 +300,13 @@
                 progressBar.classList.remove("sending-complete");
                 progressBar.style.width = "100%";
                 progressPercent.textContent = "100%";
-                progressLabel.textContent = "✓ Upload complete";
+                progressLabel.textContent = "✓ Upload batch complete";
                 break;
 
             case UIState.FAILED:
                 isUploading = false;
                 progressBar.classList.remove("sending-complete");
-                progressLabel.textContent = "Upload failed";
+                progressLabel.textContent = "Batch upload failed";
                 break;
 
             case UIState.CANCELLED:
@@ -380,7 +373,7 @@
         selectedFiles.forEach(file => map.set(`${file.name}-${file.size}`, file));
         newFiles.forEach(file => map.set(`${file.name}-${file.size}`, file));
 
-        selectedFiles = Array.from(map.values()).slice(0, 50);
+        selectedFiles = Array.from(map.values()).slice(0, 200); // Allow up to 200 files per batch
         renderFiles();
         transitionState(UIState.QUEUED);
     }
@@ -535,7 +528,6 @@
             progressBytes.textContent = `${formatBytes(loaded)} / ${formatBytes(total)}`;
             progressMetrics.textContent = `${formatSpeed(smoothedSpeed)} · ${formatEta(etaSeconds)}`;
 
-            // State Transition: 100% payload sent -> IMMEDIATELY transition (no artificial setTimeout)
             if (loaded >= total) {
                 T2_upload100 = now;
                 transitionState(UIState.SERVER_PROCESSING);
@@ -564,7 +556,7 @@
                 const count = files.length || selectedFiles.length;
 
                 transitionState(UIState.COMPLETE);
-                progressMetrics.textContent = `Total Client: ${totalClientDurationMs} ms (Upload: ${clientUploadDurationMs} ms · Confirmation: ${timeFromUpload100ToResponseMs} ms)`;
+                progressMetrics.textContent = `Client Total: ${totalClientDurationMs} ms (Upload: ${clientUploadDurationMs} ms · Confirmation: ${timeFromUpload100ToResponseMs} ms)`;
 
                 let detailsHtml = `<strong>✓ ${count} ${count === 1 ? "file" : "files"} uploaded and durably committed:</strong><br><ul style="margin-top: 8px; padding-left: 20px;">`;
                 files.forEach(f => {
