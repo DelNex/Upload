@@ -1,24 +1,25 @@
+```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
 
-    <title>DropBox — Local Upload</title>
+    <title>DropBox — Cloud Upload</title>
 
     <style>
         :root {
             --bg: #07080b;
-            --surface: rgba(20, 22, 28, 0.8);
-            --surface-2: rgba(28, 30, 38, 0.9);
+            --surface: rgba(20, 22, 28, 0.82);
+            --surface-2: rgba(28, 30, 38, 0.92);
             --border: rgba(255, 255, 255, 0.08);
             --border-hover: rgba(255, 255, 255, 0.18);
 
             --text: #f5f7fa;
             --muted: #858b98;
-
-            --accent: #ffffff;
-            --accent-text: #090a0d;
 
             --success: #72f1a8;
             --danger: #ff7e8b;
@@ -76,6 +77,10 @@
         button,
         label {
             -webkit-tap-highlight-color: transparent;
+        }
+
+        button {
+            font: inherit;
         }
 
         .app {
@@ -146,10 +151,22 @@
 
             border-radius: 50%;
 
+            background: #858b98;
+
+            transition:
+                background 200ms ease,
+                box-shadow 200ms ease;
+        }
+
+        .connection.online .connection-dot {
             background: var(--success);
 
             box-shadow:
                 0 0 12px rgba(114, 241, 168, 0.7);
+        }
+
+        .connection.online {
+            color: var(--text);
         }
 
         /* HERO */
@@ -178,7 +195,7 @@
             font-size: 16px;
             line-height: 1.6;
 
-            max-width: 570px;
+            max-width: 610px;
         }
 
         /* DROP AREA */
@@ -252,10 +269,16 @@
 
         .drop-zone.dragging {
             border-color: rgba(255,255,255,0.45);
+
             background:
                 rgba(255,255,255,0.06);
 
             transform: scale(1.01);
+        }
+
+        .drop-zone.disabled {
+            pointer-events: none;
+            opacity: 0.6;
         }
 
         .drop-content {
@@ -331,6 +354,11 @@
             transform: scale(0.98);
         }
 
+        .browse-button.disabled {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
         #fileInput {
             display: none;
         }
@@ -363,6 +391,19 @@
             display: flex;
             flex-direction: column;
             gap: 10px;
+        }
+
+        .empty-queue {
+            padding: 20px;
+
+            border: 1px dashed var(--border);
+            border-radius: 17px;
+
+            text-align: center;
+
+            color: var(--muted);
+
+            font-size: 13px;
         }
 
         .file-item {
@@ -432,16 +473,6 @@
             color: var(--muted);
 
             font-size: 12px;
-        }
-
-        .file-status {
-            font-size: 12px;
-            color: var(--muted);
-            white-space: nowrap;
-        }
-
-        .file-status.done {
-            color: var(--success);
         }
 
         .remove-button {
@@ -518,6 +549,11 @@
             background: rgba(255,255,255,0.03);
 
             cursor: pointer;
+        }
+
+        .clear-button:disabled {
+            opacity: 0.35;
+            cursor: not-allowed;
         }
 
         /* PROGRESS */
@@ -604,6 +640,12 @@
             color: var(--danger);
         }
 
+        .status.info {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--border);
+            color: var(--muted);
+        }
+
         /* FOOTER */
 
         footer {
@@ -620,13 +662,6 @@
 
         footer strong {
             color: #808694;
-        }
-
-        code {
-            font-family:
-                "SFMono-Regular",
-                Consolas,
-                monospace;
         }
 
         /* MOBILE */
@@ -704,9 +739,15 @@
             </div>
         </div>
 
-        <div class="connection">
+        <div
+            class="connection"
+            id="connectionStatus"
+        >
             <span class="connection-dot"></span>
-            Website connection
+
+            <span id="connectionText">
+                Checking connection...
+            </span>
         </div>
     </header>
 
@@ -718,8 +759,9 @@
         </h1>
 
         <p>
-            Upload photos and videos from your phone or another
-            computer directly to this laptop. No cloud required.
+            Upload photos and videos from your phone or
+            computer directly to your personal storage server.
+            Your files stay on your own machine.
         </p>
     </section>
 
@@ -742,7 +784,10 @@
                 Photos, videos and more.
             </p>
 
-            <label class="browse-button">
+            <label
+                class="browse-button"
+                id="browseButton"
+            >
                 Browse files
 
                 <input
@@ -754,7 +799,7 @@
             </label>
 
             <p class="drop-hint">
-                You can also drag and drop files.
+                You can also drag and drop files on desktop.
             </p>
 
         </div>
@@ -799,6 +844,7 @@
         <button
             class="clear-button"
             id="clearButton"
+            disabled
         >
             Clear
         </button>
@@ -847,11 +893,11 @@
     <footer>
 
         <span>
-            Files are saved locally on this laptop.
+            Files are saved on your laptop.
         </span>
 
         <span>
-            <strong>DropBox</strong> • Local only
+            <strong>DropBox</strong> • Private storage
         </span>
 
     </footer>
@@ -860,12 +906,41 @@
 
 
 <script>
+    /*
+     * ============================================================
+     * CLOUDFLARE TUNNEL CONFIGURATION
+     * ============================================================
+     *
+     * IMPORTANT:
+     * Replace this URL with your actual Cloudflare Tunnel
+     * hostname that points to:
+     *
+     * http://localhost:3000
+     *
+     * Example:
+     *
+     * const UPLOAD_SERVER =
+     *     "https://upload.example.com";
+     */
+
+    const UPLOAD_SERVER =
+        "https://YOUR-CLOUDFLARE-HOSTNAME.com";
+
+
+    /*
+     * ============================================================
+     * ELEMENTS
+     * ============================================================
+     */
 
     const fileInput =
         document.getElementById("fileInput");
 
     const dropZone =
         document.getElementById("dropZone");
+
+    const browseButton =
+        document.getElementById("browseButton");
 
     const fileList =
         document.getElementById("fileList");
@@ -894,9 +969,29 @@
     const status =
         document.getElementById("status");
 
+    const connectionStatus =
+        document.getElementById("connectionStatus");
+
+    const connectionText =
+        document.getElementById("connectionText");
+
+
+    /*
+     * ============================================================
+     * STATE
+     * ============================================================
+     */
 
     let selectedFiles = [];
+    let isUploading = false;
+    let serverOnline = false;
 
+
+    /*
+     * ============================================================
+     * HELPERS
+     * ============================================================
+     */
 
     function formatBytes(bytes) {
 
@@ -914,13 +1009,16 @@
 
         const index =
             Math.floor(
-                Math.log(bytes) / Math.log(1024)
+                Math.log(bytes) /
+                Math.log(1024)
             );
 
         return `${(
             bytes /
             Math.pow(1024, index)
-        ).toFixed(index === 0 ? 0 : 1)} ${units[index]}`;
+        ).toFixed(
+            index === 0 ? 0 : 1
+        )} ${units[index]}`;
     }
 
 
@@ -929,137 +1027,6 @@
         return (
             file.type.startsWith("image/") ||
             file.type.startsWith("video/")
-        );
-    }
-
-
-    function addFiles(files) {
-
-        const incoming =
-            Array.from(files)
-                .filter(isValidFile);
-
-        selectedFiles.push(...incoming);
-
-        renderFiles();
-    }
-
-
-    function removeFile(index) {
-
-        selectedFiles.splice(index, 1);
-
-        renderFiles();
-    }
-
-
-    function renderFiles() {
-
-        fileList.innerHTML = "";
-
-        queueCount.textContent =
-            `${selectedFiles.length} ${
-                selectedFiles.length === 1
-                    ? "file"
-                    : "files"
-            }`;
-
-        uploadButton.disabled =
-            selectedFiles.length === 0;
-
-
-        selectedFiles.forEach(
-            (file, index) => {
-
-                const item =
-                    document.createElement("div");
-
-                item.className = "file-item";
-
-
-                const preview =
-                    document.createElement("div");
-
-                preview.className =
-                    "preview";
-
-
-                if (
-                    file.type.startsWith("image/")
-                ) {
-
-                    const image =
-                        document.createElement("img");
-
-                    image.src =
-                        URL.createObjectURL(file);
-
-                    image.alt =
-                        "";
-
-                    preview.appendChild(image);
-
-                } else {
-
-                    const video =
-                        document.createElement("video");
-
-                    video.src =
-                        URL.createObjectURL(file);
-
-                    video.muted = true;
-
-                    preview.appendChild(video);
-                }
-
-
-                const details =
-                    document.createElement("div");
-
-                details.className =
-                    "file-details";
-
-                details.innerHTML = `
-                    <div class="file-name">
-                        ${escapeHtml(file.name)}
-                    </div>
-
-                    <div class="file-meta">
-                        ${formatBytes(file.size)}
-                        ·
-                        ${
-                            file.type.startsWith("video/")
-                                ? "Video"
-                                : "Image"
-                        }
-                    </div>
-                `;
-
-
-                const remove =
-                    document.createElement("button");
-
-                remove.className =
-                    "remove-button";
-
-                remove.innerHTML =
-                    "×";
-
-                remove.title =
-                    "Remove file";
-
-                remove.addEventListener(
-                    "click",
-                    () => removeFile(index)
-                );
-
-
-                item.appendChild(preview);
-                item.appendChild(details);
-                item.appendChild(remove);
-
-                fileList.appendChild(item);
-            }
         );
     }
 
@@ -1075,9 +1042,17 @@
     }
 
 
+    function normalizeUploadServer() {
+
+        return UPLOAD_SERVER
+            .trim()
+            .replace(/\/+$/, "");
+    }
+
+
     function showStatus(
         message,
-        type
+        type = "info"
     ) {
 
         status.textContent =
@@ -1090,13 +1065,422 @@
 
     function clearStatus() {
 
+        status.textContent = "";
+
         status.className =
             "status";
-
-        status.textContent =
-            "";
     }
 
+
+    function setConnection(
+        online,
+        message
+    ) {
+
+        serverOnline =
+            online;
+
+        connectionStatus.classList.toggle(
+            "online",
+            online
+        );
+
+        connectionText.textContent =
+            message;
+
+        updateButtons();
+    }
+
+
+    function updateButtons() {
+
+        uploadButton.disabled =
+            selectedFiles.length === 0 ||
+            !serverOnline ||
+            isUploading;
+
+        clearButton.disabled =
+            selectedFiles.length === 0 ||
+            isUploading;
+
+        dropZone.classList.toggle(
+            "disabled",
+            isUploading
+        );
+
+        browseButton.classList.toggle(
+            "disabled",
+            isUploading
+        );
+    }
+
+
+    /*
+     * ============================================================
+     * SERVER CONNECTION CHECK
+     * ============================================================
+     */
+
+    async function checkServerConnection() {
+
+        const server =
+            normalizeUploadServer();
+
+
+        if (
+            !server ||
+            server.includes(
+                "YOUR-CLOUDFLARE-HOSTNAME"
+            )
+        ) {
+
+            setConnection(
+                false,
+                "Configure Cloudflare"
+            );
+
+            showStatus(
+                "Set your Cloudflare Tunnel URL in UPLOAD_SERVER before deploying.",
+                "error"
+            );
+
+            return;
+        }
+
+
+        setConnection(
+            false,
+            "Connecting..."
+        );
+
+
+        try {
+
+            const response =
+                await fetch(
+                    `${server}/health`,
+                    {
+                        method: "GET",
+                        cache: "no-store"
+                    }
+                );
+
+
+            if (!response.ok) {
+                throw new Error(
+                    `Server returned ${response.status}`
+                );
+            }
+
+
+            const data =
+                await response.json();
+
+
+            if (!data.ok) {
+                throw new Error(
+                    "Upload server is not healthy."
+                );
+            }
+
+
+            setConnection(
+                true,
+                "Laptop online"
+            );
+
+
+            /*
+             * Remove a previous connection error
+             * once the server comes back.
+             */
+
+            if (
+                status.classList.contains(
+                    "error"
+                )
+            ) {
+                clearStatus();
+            }
+
+        } catch (error) {
+
+            console.error(
+                "Cloudflare/laptop connection error:",
+                error
+            );
+
+
+            setConnection(
+                false,
+                "Laptop offline"
+            );
+
+
+            showStatus(
+                "The laptop upload server could not be reached. Check Node.js and Cloudflare Tunnel.",
+                "error"
+            );
+        }
+    }
+
+
+    /*
+     * ============================================================
+     * FILE QUEUE
+     * ============================================================
+     */
+
+    function addFiles(files) {
+
+        const incoming =
+            Array.from(files)
+                .filter(isValidFile);
+
+
+        if (
+            incoming.length === 0
+        ) {
+
+            showStatus(
+                "Only image and video files are supported.",
+                "error"
+            );
+
+            return;
+        }
+
+
+        selectedFiles.push(
+            ...incoming
+        );
+
+
+        clearStatus();
+
+        renderFiles();
+    }
+
+
+    function removeFile(index) {
+
+        if (isUploading) {
+            return;
+        }
+
+
+        selectedFiles.splice(
+            index,
+            1
+        );
+
+
+        renderFiles();
+    }
+
+
+    function renderFiles() {
+
+        fileList.innerHTML = "";
+
+
+        queueCount.textContent =
+            `${selectedFiles.length} ${
+                selectedFiles.length === 1
+                    ? "file"
+                    : "files"
+            }`;
+
+
+        updateButtons();
+
+
+        if (
+            selectedFiles.length === 0
+        ) {
+
+            const empty =
+                document.createElement("div");
+
+            empty.className =
+                "empty-queue";
+
+            empty.textContent =
+                "Your selected files will appear here.";
+
+            fileList.appendChild(
+                empty
+            );
+
+            return;
+        }
+
+
+        selectedFiles.forEach(
+            (file, index) => {
+
+                const item =
+                    document.createElement(
+                        "div"
+                    );
+
+                item.className =
+                    "file-item";
+
+
+                /*
+                 * Preview
+                 */
+
+                const preview =
+                    document.createElement(
+                        "div"
+                    );
+
+                preview.className =
+                    "preview";
+
+
+                if (
+                    file.type.startsWith(
+                        "image/"
+                    )
+                ) {
+
+                    const image =
+                        document.createElement(
+                            "img"
+                        );
+
+
+                    image.src =
+                        URL.createObjectURL(
+                            file
+                        );
+
+
+                    image.alt =
+                        "";
+
+
+                    preview.appendChild(
+                        image
+                    );
+
+                } else {
+
+                    const video =
+                        document.createElement(
+                            "video"
+                        );
+
+
+                    video.src =
+                        URL.createObjectURL(
+                            file
+                        );
+
+
+                    video.muted =
+                        true;
+
+
+                    preview.appendChild(
+                        video
+                    );
+                }
+
+
+                /*
+                 * Details
+                 */
+
+                const details =
+                    document.createElement(
+                        "div"
+                    );
+
+                details.className =
+                    "file-details";
+
+
+                details.innerHTML = `
+                    <div class="file-name">
+                        ${escapeHtml(file.name)}
+                    </div>
+
+                    <div class="file-meta">
+                        ${formatBytes(file.size)}
+                        ·
+                        ${
+                            file.type.startsWith(
+                                "video/"
+                            )
+                                ? "Video"
+                                : "Image"
+                        }
+                    </div>
+                `;
+
+
+                /*
+                 * Remove button
+                 */
+
+                const remove =
+                    document.createElement(
+                        "button"
+                    );
+
+
+                remove.className =
+                    "remove-button";
+
+
+                remove.textContent =
+                    "×";
+
+
+                remove.title =
+                    "Remove file";
+
+
+                remove.type =
+                    "button";
+
+
+                remove.addEventListener(
+                    "click",
+                    () => removeFile(index)
+                );
+
+
+                item.appendChild(
+                    preview
+                );
+
+                item.appendChild(
+                    details
+                );
+
+                item.appendChild(
+                    remove
+                );
+
+
+                fileList.appendChild(
+                    item
+                );
+            }
+        );
+    }
+
+
+    /*
+     * ============================================================
+     * FILE PICKER
+     * ============================================================
+     */
 
     fileInput.addEventListener(
         "change",
@@ -1106,16 +1490,36 @@
                 event.target.files
             );
 
+
+            /*
+             * Allows selecting the same file
+             * again after removing it.
+             */
+
             fileInput.value = "";
         }
     );
 
+
+    /*
+     * ============================================================
+     * DRAG & DROP
+     * ============================================================
+     */
 
     dropZone.addEventListener(
         "dragover",
         event => {
 
             event.preventDefault();
+
+
+            if (
+                isUploading
+            ) {
+                return;
+            }
+
 
             dropZone.classList.add(
                 "dragging"
@@ -1137,6 +1541,7 @@
                 return;
             }
 
+
             dropZone.classList.remove(
                 "dragging"
             );
@@ -1150,9 +1555,18 @@
 
             event.preventDefault();
 
+
             dropZone.classList.remove(
                 "dragging"
             );
+
+
+            if (
+                isUploading
+            ) {
+                return;
+            }
+
 
             addFiles(
                 event.dataTransfer.files
@@ -1161,38 +1575,71 @@
     );
 
 
+    /*
+     * ============================================================
+     * CLEAR QUEUE
+     * ============================================================
+     */
+
     clearButton.addEventListener(
         "click",
         () => {
 
+            if (
+                isUploading
+            ) {
+                return;
+            }
+
+
             selectedFiles = [];
+
 
             renderFiles();
 
             clearStatus();
 
+
             uploadProgress.classList.remove(
                 "visible"
             );
 
+
             progressBar.style.width =
                 "0%";
 
+
             progressPercent.textContent =
                 "0%";
+
+
+            progressLabel.textContent =
+                "Uploading...";
         }
     );
 
+
+    /*
+     * ============================================================
+     * UPLOAD
+     * ============================================================
+     */
 
     uploadButton.addEventListener(
         "click",
         () => {
 
             if (
-                selectedFiles.length === 0
+                selectedFiles.length === 0 ||
+                !serverOnline ||
+                isUploading
             ) {
                 return;
             }
+
+
+            const server =
+                normalizeUploadServer();
 
 
             const formData =
@@ -1216,22 +1663,40 @@
 
             xhr.open(
                 "POST",
-                "/upload"
+                `${server}/upload`
             );
+
+
+            isUploading =
+                true;
+
+
+            updateButtons();
+
+
+            clearStatus();
 
 
             uploadProgress.classList.add(
                 "visible"
             );
 
-            uploadButton.disabled =
-                true;
 
-            clearButton.disabled =
-                true;
+            progressBar.style.width =
+                "0%";
 
-            clearStatus();
 
+            progressPercent.textContent =
+                "0%";
+
+
+            progressLabel.textContent =
+                "Uploading...";
+
+
+            /*
+             * Progress
+             */
 
             xhr.upload.addEventListener(
                 "progress",
@@ -1256,8 +1721,10 @@
                     progressBar.style.width =
                         `${percent}%`;
 
+
                     progressPercent.textContent =
                         `${percent}%`;
+
 
                     progressLabel.textContent =
                         "Uploading...";
@@ -1265,14 +1732,15 @@
             );
 
 
+            /*
+             * Upload finished
+             */
+
             xhr.addEventListener(
                 "load",
                 () => {
 
-                    uploadButton.disabled =
-                        false;
-
-                    clearButton.disabled =
+                    isUploading =
                         false;
 
 
@@ -1282,6 +1750,7 @@
                     ) {
 
                         let response;
+
 
                         try {
 
@@ -1293,27 +1762,32 @@
                         } catch {
 
                             response = {
+                                success: true,
                                 files: []
                             };
                         }
 
 
+                        const count =
+                            response.files?.length ||
+                            selectedFiles.length;
+
+
                         progressBar.style.width =
                             "100%";
 
+
                         progressPercent.textContent =
                             "100%";
+
 
                         progressLabel.textContent =
                             "Complete";
 
 
                         showStatus(
-                            `✓ ${
-                                response.files?.length ||
-                                selectedFiles.length
-                            } ${
-                                selectedFiles.length === 1
+                            `✓ ${count} ${
+                                count === 1
                                     ? "file"
                                     : "files"
                             } uploaded successfully.`,
@@ -1323,33 +1797,91 @@
 
                         selectedFiles = [];
 
+
                         renderFiles();
+
 
                     } else {
 
+                        let message =
+                            "Upload failed.";
+
+
+                        try {
+
+                            const response =
+                                JSON.parse(
+                                    xhr.responseText
+                                );
+
+
+                            message =
+                                response.error ||
+                                message;
+
+                        } catch {}
+
+
                         showStatus(
-                            "Upload failed. Please try again.",
+                            message,
                             "error"
                         );
+
+
+                        updateButtons();
                     }
                 }
             );
 
 
+            /*
+             * Network failure
+             */
+
             xhr.addEventListener(
                 "error",
                 () => {
 
-                    uploadButton.disabled =
+                    isUploading =
                         false;
 
-                    clearButton.disabled =
-                        false;
+
+                    setConnection(
+                        false,
+                        "Laptop offline"
+                    );
+
 
                     showStatus(
-                        "Connection failed. Make sure the laptop server is running.",
+                        "Connection failed. Check Cloudflare Tunnel and the laptop server.",
                         "error"
                     );
+
+
+                    updateButtons();
+                }
+            );
+
+
+            /*
+             * Request aborted
+             */
+
+            xhr.addEventListener(
+                "abort",
+                () => {
+
+                    isUploading =
+                        false;
+
+
+                    showStatus(
+                        "Upload was cancelled.",
+                        "error"
+                    );
+
+
+                    updateButtons();
                 }
             );
 
@@ -1360,7 +1892,32 @@
         }
     );
 
+
+    /*
+     * ============================================================
+     * STARTUP
+     * ============================================================
+     */
+
+    renderFiles();
+
+    checkServerConnection();
+
+
+    /*
+     * Check the laptop every 30 seconds.
+     *
+     * This means the status changes automatically if you
+     * start/stop the Node server or Cloudflare Tunnel.
+     */
+
+    setInterval(
+        checkServerConnection,
+        30000
+    );
 </script>
 
 </body>
 </html>
+```
+
