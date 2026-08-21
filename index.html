@@ -1,8 +1,8 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+
     <meta
         name="viewport"
         content="width=device-width, initial-scale=1.0"
@@ -15,6 +15,7 @@
             --bg: #07080b;
             --surface: rgba(20, 22, 28, 0.82);
             --surface-2: rgba(28, 30, 38, 0.92);
+
             --border: rgba(255, 255, 255, 0.08);
             --border-hover: rgba(255, 255, 255, 0.18);
 
@@ -87,8 +88,6 @@
             width: 100%;
             max-width: 900px;
         }
-
-        /* HEADER */
 
         header {
             display: flex;
@@ -169,8 +168,6 @@
             color: var(--text);
         }
 
-        /* HERO */
-
         .hero {
             margin-bottom: 26px;
         }
@@ -197,8 +194,6 @@
 
             max-width: 610px;
         }
-
-        /* DROP AREA */
 
         .drop-zone {
             position: relative;
@@ -363,8 +358,6 @@
             display: none;
         }
 
-        /* QUEUE */
-
         .queue {
             margin-top: 28px;
         }
@@ -496,8 +489,6 @@
             background: rgba(255,255,255,0.07);
         }
 
-        /* ACTIONS */
-
         .actions {
             display: flex;
             gap: 10px;
@@ -556,8 +547,6 @@
             cursor: not-allowed;
         }
 
-        /* PROGRESS */
-
         .upload-progress {
             margin-top: 22px;
 
@@ -610,8 +599,6 @@
             transition: width 150ms ease;
         }
 
-        /* STATUS */
-
         .status {
             margin-top: 16px;
 
@@ -646,8 +633,6 @@
             color: var(--muted);
         }
 
-        /* FOOTER */
-
         footer {
             margin-top: 30px;
 
@@ -663,8 +648,6 @@
         footer strong {
             color: #808694;
         }
-
-        /* MOBILE */
 
         @media (max-width: 620px) {
             body {
@@ -746,11 +729,10 @@
             <span class="connection-dot"></span>
 
             <span id="connectionText">
-                Checking connection...
+                Loading configuration...
             </span>
         </div>
     </header>
-
 
     <section class="hero">
         <h1>
@@ -764,7 +746,6 @@
             Your files stay on your own machine.
         </p>
     </section>
-
 
     <div
         class="drop-zone"
@@ -805,7 +786,6 @@
         </div>
     </div>
 
-
     <section class="queue">
 
         <div class="queue-header">
@@ -830,7 +810,6 @@
 
     </section>
 
-
     <div class="actions">
 
         <button
@@ -850,7 +829,6 @@
         </button>
 
     </div>
-
 
     <div
         class="upload-progress"
@@ -883,12 +861,10 @@
 
     </div>
 
-
     <div
         class="status"
         id="status"
     ></div>
-
 
     <footer>
 
@@ -904,27 +880,22 @@
 
 </div>
 
-
 <script>
     /*
      * ============================================================
-     * CLOUDFLARE TUNNEL CONFIGURATION
+     * CONFIGURATION
      * ============================================================
      *
-     * IMPORTANT:
-     * Replace this URL with your actual Cloudflare Tunnel
-     * hostname that points to:
+     * The upload server is NOT hardcoded here.
      *
-     * http://localhost:3000
+     * Vercel exposes it through:
      *
-     * Example:
+     * GET /api/config
      *
-     * const UPLOAD_SERVER =
-     *     "https://upload.example.com";
+     * which reads the UPLOAD_SERVER environment variable.
      */
 
-    const UPLOAD_SERVER =
-        "https://YOUR-CLOUDFLARE-HOSTNAME.com";
+    let UPLOAD_SERVER = "";
 
 
     /*
@@ -1117,6 +1088,79 @@
 
     /*
      * ============================================================
+     * LOAD VERCEL CONFIGURATION
+     * ============================================================
+     */
+
+    async function loadConfiguration() {
+
+        try {
+
+            const response =
+                await fetch(
+                    "/api/config",
+                    {
+                        method: "GET",
+                        cache: "no-store"
+                    }
+                );
+
+
+            if (!response.ok) {
+
+                throw new Error(
+                    `Configuration endpoint returned ${response.status}`
+                );
+            }
+
+
+            const data =
+                await response.json();
+
+
+            if (
+                !data.uploadServer
+            ) {
+
+                throw new Error(
+                    "UPLOAD_SERVER is not configured."
+                );
+            }
+
+
+            UPLOAD_SERVER =
+                data.uploadServer;
+
+
+            return true;
+
+        } catch (error) {
+
+            console.error(
+                "Configuration error:",
+                error
+            );
+
+
+            setConnection(
+                false,
+                "Configuration error"
+            );
+
+
+            showStatus(
+                "Upload server configuration could not be loaded.",
+                "error"
+            );
+
+
+            return false;
+        }
+    }
+
+
+    /*
+     * ============================================================
      * SERVER CONNECTION CHECK
      * ============================================================
      */
@@ -1127,21 +1171,11 @@
             normalizeUploadServer();
 
 
-        if (
-            !server ||
-            server.includes(
-                "YOUR-CLOUDFLARE-HOSTNAME"
-            )
-        ) {
+        if (!server) {
 
             setConnection(
                 false,
-                "Configure Cloudflare"
-            );
-
-            showStatus(
-                "Set your Cloudflare Tunnel URL in UPLOAD_SERVER before deploying.",
-                "error"
+                "Server not configured"
             );
 
             return;
@@ -1167,6 +1201,7 @@
 
 
             if (!response.ok) {
+
                 throw new Error(
                     `Server returned ${response.status}`
                 );
@@ -1178,6 +1213,7 @@
 
 
             if (!data.ok) {
+
                 throw new Error(
                     "Upload server is not healthy."
                 );
@@ -1190,23 +1226,19 @@
             );
 
 
-            /*
-             * Remove a previous connection error
-             * once the server comes back.
-             */
-
             if (
                 status.classList.contains(
                     "error"
                 )
             ) {
+
                 clearStatus();
             }
 
         } catch (error) {
 
             console.error(
-                "Cloudflare/laptop connection error:",
+                "Upload server connection error:",
                 error
             );
 
@@ -1328,10 +1360,6 @@
                     "file-item";
 
 
-                /*
-                 * Preview
-                 */
-
                 const preview =
                     document.createElement(
                         "div"
@@ -1352,16 +1380,13 @@
                             "img"
                         );
 
-
                     image.src =
                         URL.createObjectURL(
                             file
                         );
 
-
                     image.alt =
                         "";
-
 
                     preview.appendChild(
                         image
@@ -1374,26 +1399,22 @@
                             "video"
                         );
 
-
                     video.src =
                         URL.createObjectURL(
                             file
                         );
 
-
                     video.muted =
                         true;
 
+                    video.playsInline =
+                        true;
 
                     preview.appendChild(
                         video
                     );
                 }
 
-
-                /*
-                 * Details
-                 */
 
                 const details =
                     document.createElement(
@@ -1423,31 +1444,22 @@
                 `;
 
 
-                /*
-                 * Remove button
-                 */
-
                 const remove =
                     document.createElement(
                         "button"
                     );
 
-
                 remove.className =
                     "remove-button";
-
 
                 remove.textContent =
                     "×";
 
-
                 remove.title =
                     "Remove file";
 
-
                 remove.type =
                     "button";
-
 
                 remove.addEventListener(
                     "click",
@@ -1489,12 +1501,6 @@
             addFiles(
                 event.target.files
             );
-
-
-            /*
-             * Allows selecting the same file
-             * again after removing it.
-             */
 
             fileInput.value = "";
         }
@@ -1673,7 +1679,6 @@
 
             updateButtons();
 
-
             clearStatus();
 
 
@@ -1693,10 +1698,6 @@
             progressLabel.textContent =
                 "Uploading...";
 
-
-            /*
-             * Progress
-             */
 
             xhr.upload.addEventListener(
                 "progress",
@@ -1731,10 +1732,6 @@
                 }
             );
 
-
-            /*
-             * Upload finished
-             */
 
             xhr.addEventListener(
                 "load",
@@ -1800,7 +1797,6 @@
 
                         renderFiles();
 
-
                     } else {
 
                         let message =
@@ -1834,10 +1830,6 @@
             );
 
 
-            /*
-             * Network failure
-             */
-
             xhr.addEventListener(
                 "error",
                 () => {
@@ -1862,10 +1854,6 @@
                 }
             );
 
-
-            /*
-             * Request aborted
-             */
 
             xhr.addEventListener(
                 "abort",
@@ -1899,25 +1887,41 @@
      * ============================================================
      */
 
-    renderFiles();
+    async function initialize() {
 
-    checkServerConnection();
+        renderFiles();
+
+        setConnection(
+            false,
+            "Loading configuration..."
+        );
 
 
-    /*
-     * Check the laptop every 30 seconds.
-     *
-     * This means the status changes automatically if you
-     * start/stop the Node server or Cloudflare Tunnel.
-     */
+        const configured =
+            await loadConfiguration();
 
-    setInterval(
-        checkServerConnection,
-        30000
-    );
+
+        if (!configured) {
+            return;
+        }
+
+
+        await checkServerConnection();
+
+
+        /*
+         * Re-check the laptop every 30 seconds.
+         */
+
+        setInterval(
+            checkServerConnection,
+            30000
+        );
+    }
+
+
+    initialize();
 </script>
 
 </body>
 </html>
-
-
