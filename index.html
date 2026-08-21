@@ -10,514 +10,88 @@
             --bg: #07080b;
             --surface: rgba(20, 22, 28, 0.82);
             --surface-2: rgba(28, 30, 38, 0.92);
-
             --border: rgba(255, 255, 255, 0.08);
             --border-hover: rgba(255, 255, 255, 0.18);
-
             --text: #f5f7fa;
             --muted: #858b98;
-
             --success: #72f1a8;
             --danger: #ff7e8b;
             --accent: #5e8cfc;
-
             --radius-lg: 28px;
-            --radius-md: 18px;
-
             --shadow: 0 30px 80px rgba(0, 0, 0, 0.4);
         }
 
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-
-        html {
-            color-scheme: dark;
-        }
-
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        html { color-scheme: dark; }
         body {
             min-height: 100vh;
-            font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-            background:
-                radial-gradient(circle at 50% -20%, rgba(255, 255, 255, 0.08), transparent 40%),
-                radial-gradient(circle at 0% 100%, rgba(100, 120, 255, 0.06), transparent 30%),
-                var(--bg);
+            font-family: Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
+            background: radial-gradient(circle at 50% -20%, rgba(255, 255, 255, 0.08), transparent 40%), var(--bg);
             color: var(--text);
             display: flex;
             justify-content: center;
             padding: 32px 18px 50px;
         }
 
-        button, label {
-            -webkit-tap-highlight-color: transparent;
-        }
-
-        button {
-            font: inherit;
-        }
-
-        .app {
-            width: 100%;
-            max-width: 900px;
-        }
-
-        header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 34px;
-        }
-
-        .brand {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .brand-icon {
-            width: 44px;
-            height: 44px;
-            border-radius: 14px;
-            display: grid;
-            place-items: center;
-            background: #fff;
-            color: #000;
-            font-size: 21px;
-            font-weight: 900;
-            box-shadow: 0 10px 30px rgba(255, 255, 255, 0.08);
-        }
-
-        .brand-name {
-            font-size: 18px;
-            font-weight: 750;
-            letter-spacing: -0.03em;
-        }
-
-        .connection {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 9px 13px;
-            border: 1px solid var(--border);
-            border-radius: 999px;
-            background: rgba(255, 255, 255, 0.03);
-            font-size: 13px;
-            color: var(--muted);
-        }
-
-        .connection-dot {
-            width: 7px;
-            height: 7px;
-            border-radius: 50%;
-            background: #858b98;
-            transition: background 200ms ease, box-shadow 200ms ease;
-        }
-
-        .connection.online .connection-dot {
-            background: var(--success);
-            box-shadow: 0 0 12px rgba(114, 241, 168, 0.7);
-        }
-
-        .connection.online {
-            color: var(--text);
-        }
-
-        .hero {
-            margin-bottom: 26px;
-        }
-
-        .hero h1 {
-            font-size: clamp(38px, 7vw, 68px);
-            line-height: 0.98;
-            letter-spacing: -0.055em;
-            max-width: 720px;
-        }
-
-        .hero h1 span {
-            color: var(--muted);
-        }
-
-        .hero p {
-            margin-top: 18px;
-            color: var(--muted);
-            font-size: 16px;
-            line-height: 1.6;
-            max-width: 610px;
-        }
-
-        .drop-zone {
-            position: relative;
-            min-height: 310px;
-            border: 1px solid var(--border);
-            border-radius: var(--radius-lg);
-            background: linear-gradient(145deg, rgba(255,255,255,0.04), rgba(255,255,255,0.015));
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            text-align: center;
-            overflow: hidden;
-            box-shadow: var(--shadow);
-            cursor: pointer;
-            transition: border-color 180ms ease, background 180ms ease, transform 180ms ease;
-        }
-
-        .drop-zone::before {
-            content: "";
-            position: absolute;
-            inset: 0;
-            background-image:
-                linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
-            background-size: 32px 32px;
-            mask-image: linear-gradient(to bottom, black, transparent 90%);
-            pointer-events: none;
-        }
-
-        .drop-zone:hover {
-            border-color: var(--border-hover);
-            transform: translateY(-2px);
-        }
-
-        .drop-zone.dragging {
-            border-color: rgba(255,255,255,0.45);
-            background: rgba(255,255,255,0.06);
-            transform: scale(1.01);
-        }
-
-        .drop-zone.disabled {
-            pointer-events: none;
-            opacity: 0.6;
-        }
-
-        .drop-content {
-            position: relative;
-            z-index: 1;
-            padding: 36px 20px;
-        }
-
-        .upload-icon {
-            width: 68px;
-            height: 68px;
-            margin: 0 auto 18px;
-            display: grid;
-            place-items: center;
-            border-radius: 22px;
-            background: rgba(255,255,255,0.08);
-            border: 1px solid var(--border);
-            font-size: 28px;
-        }
-
-        .drop-content h2 {
-            font-size: 24px;
-            letter-spacing: -0.03em;
-        }
-
-        .drop-content p {
-            color: var(--muted);
-            margin-top: 8px;
-            line-height: 1.5;
-        }
-
-        .drop-hint {
-            margin-top: 15px !important;
-            font-size: 13px;
-        }
-
-        .browse-button {
-            display: inline-flex;
-            margin-top: 22px;
-            padding: 13px 18px;
-            border: 1px solid rgba(255,255,255,0.08);
-            border-radius: 13px;
-            background: white;
-            color: #000;
-            font-size: 14px;
-            font-weight: 700;
-            cursor: pointer;
-            transition: transform 150ms ease, opacity 150ms ease;
-        }
-
-        .browse-button:hover {
-            transform: translateY(-1px);
-        }
-
-        .browse-button:active {
-            transform: scale(0.98);
-        }
-
-        .browse-button.disabled {
-            opacity: 0.5;
-            pointer-events: none;
-        }
-
-        #fileInput {
-            display: none;
-        }
-
-        .queue {
-            margin-top: 28px;
-        }
-
-        .queue-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 12px;
-        }
-
-        .queue-title {
-            font-size: 14px;
-            font-weight: 700;
-        }
-
-        .queue-count {
-            color: var(--muted);
-            font-size: 13px;
-        }
-
-        .file-list {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-
-        .empty-queue {
-            padding: 20px;
-            border: 1px dashed var(--border);
-            border-radius: 17px;
-            text-align: center;
-            color: var(--muted);
-            font-size: 13px;
-        }
-
-        .file-item {
-            display: grid;
-            grid-template-columns: 52px minmax(0, 1fr) auto;
-            align-items: center;
-            gap: 13px;
-            padding: 12px;
-            border: 1px solid var(--border);
-            border-radius: 17px;
-            background: var(--surface);
-            backdrop-filter: blur(15px);
-        }
-
-        .preview {
-            width: 52px;
-            height: 52px;
-            border-radius: 13px;
-            overflow: hidden;
-            background: var(--surface-2);
-            display: grid;
-            place-items: center;
-            font-size: 22px;
-            flex-shrink: 0;
-        }
-
-        .preview img, .preview video {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-
-        .file-details {
-            min-width: 0;
-        }
-
-        .file-name {
-            font-size: 14px;
-            font-weight: 650;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        .file-meta {
-            margin-top: 4px;
-            color: var(--muted);
-            font-size: 12px;
-        }
-
-        .remove-button {
-            border: 0;
-            background: transparent;
-            color: #686e7b;
-            width: 30px;
-            height: 30px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 16px;
-        }
-
-        .remove-button:hover {
-            color: white;
-            background: rgba(255,255,255,0.07);
-        }
-
-        .actions {
-            display: flex;
-            gap: 10px;
-            margin-top: 18px;
-        }
-
-        .upload-button {
-            flex: 1;
-            min-height: 56px;
-            border: 0;
-            border-radius: 16px;
-            background: white;
-            color: black;
-            font-weight: 750;
-            font-size: 15px;
-            cursor: pointer;
-            transition: transform 150ms ease, opacity 150ms ease;
-        }
-
-        .upload-button:hover:not(:disabled) {
-            transform: translateY(-1px);
-        }
-
-        .upload-button:active:not(:disabled) {
-            transform: scale(0.99);
-        }
-
-        .upload-button:disabled {
-            opacity: 0.35;
-            cursor: not-allowed;
-        }
-
-        .clear-button {
-            padding: 0 20px;
-            border: 1px solid var(--border);
-            border-radius: 16px;
-            color: white;
-            background: rgba(255,255,255,0.03);
-            cursor: pointer;
-        }
-
-        .clear-button:disabled {
-            opacity: 0.35;
-            cursor: not-allowed;
-        }
-
-        /* Enhanced Upload Progress UI */
-        .upload-progress {
-            margin-top: 22px;
-            padding: 20px;
-            border: 1px solid var(--border);
-            border-radius: 17px;
-            background: var(--surface);
-            display: none;
-            backdrop-filter: blur(15px);
-        }
-
-        .upload-progress.visible {
-            display: block;
-        }
-
-        .progress-top {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 10px;
-            font-size: 13.5px;
-        }
-
-        .progress-label {
-            font-weight: 650;
-            color: var(--text);
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .progress-percent {
-            font-weight: 700;
-            color: var(--text);
-        }
-
-        .progress-track {
-            height: 8px;
-            border-radius: 99px;
-            background: rgba(255,255,255,0.08);
-            overflow: hidden;
-            margin-bottom: 12px;
-            position: relative;
-        }
-
-        .progress-bar {
-            height: 100%;
-            width: 0%;
-            border-radius: inherit;
-            background: linear-gradient(90deg, #5e8cfc, #72f1a8);
-            transition: width 200ms cubic-bezier(0.1, 0.5, 0.1, 1);
-        }
-
-        .progress-bar.finalizing {
-            background: linear-gradient(90deg, #f39c12, #f1c40f);
-            animation: pulse-bar 1.5s infinite ease-in-out;
-        }
-
-        @keyframes pulse-bar {
-            0% { opacity: 0.7; }
-            50% { opacity: 1.0; }
-            100% { opacity: 0.7; }
-        }
-
-        .progress-sub {
-            display: flex;
-            justify-content: space-between;
-            font-size: 12.5px;
-            color: var(--muted);
-            font-family: monospace, ui-monospace, sans-serif;
-        }
-
-        .status {
-            margin-top: 16px;
-            padding: 16px 18px;
-            border-radius: 16px;
-            display: none;
-            font-size: 14px;
-            line-height: 1.5;
-            word-break: break-all;
-        }
-
-        .status.show {
-            display: block;
-        }
-
-        .status.success {
-            background: rgba(114,241,168,0.08);
-            border: 1px solid rgba(114,241,168,0.18);
-            color: var(--success);
-        }
-
-        .status.error {
-            background: rgba(255,126,139,0.08);
-            border: 1px solid rgba(255,126,139,0.18);
-            color: var(--danger);
-        }
-
-        .status.info {
-            background: rgba(255,255,255,0.04);
-            border: 1px solid var(--border);
-            color: var(--muted);
-        }
-
-        footer {
-            margin-top: 30px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            color: #5f6572;
-            font-size: 12px;
-        }
-
-        footer strong {
-            color: #808694;
-        }
+        .app { width: 100%; max-width: 900px; }
+        header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 34px; }
+        .brand { display: flex; align-items: center; gap: 12px; }
+        .brand-icon { width: 44px; height: 44px; border-radius: 14px; display: grid; place-items: center; background: #fff; color: #000; font-size: 21px; font-weight: 900; }
+        .brand-name { font-size: 18px; font-weight: 750; letter-spacing: -0.03em; }
+
+        .connection { display: flex; align-items: center; gap: 8px; padding: 9px 13px; border: 1px solid var(--border); border-radius: 999px; background: rgba(255, 255, 255, 0.03); font-size: 13px; color: var(--muted); }
+        .connection-dot { width: 7px; height: 7px; border-radius: 50%; background: #858b98; }
+        .connection.online .connection-dot { background: var(--success); box-shadow: 0 0 12px rgba(114, 241, 168, 0.7); }
+        .connection.online { color: var(--text); }
+
+        .hero { margin-bottom: 26px; }
+        .hero h1 { font-size: clamp(38px, 7vw, 68px); line-height: 0.98; letter-spacing: -0.055em; }
+        .hero h1 span { color: var(--muted); }
+        .hero p { margin-top: 18px; color: var(--muted); font-size: 16px; line-height: 1.6; }
+
+        .drop-zone { position: relative; min-height: 310px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: linear-gradient(145deg, rgba(255,255,255,0.04), rgba(255,255,255,0.015)); display: flex; justify-content: center; align-items: center; text-align: center; cursor: pointer; }
+        .drop-zone.dragging { border-color: rgba(255,255,255,0.45); background: rgba(255,255,255,0.06); }
+        .drop-zone.disabled { pointer-events: none; opacity: 0.6; }
+
+        .drop-content { padding: 36px 20px; }
+        .upload-icon { width: 68px; height: 68px; margin: 0 auto 18px; display: grid; place-items: center; border-radius: 22px; background: rgba(255,255,255,0.08); border: 1px solid var(--border); font-size: 28px; }
+        .drop-hint { margin-top: 15px; font-size: 13px; color: var(--muted); }
+        .browse-button { display: inline-flex; margin-top: 22px; padding: 13px 18px; border-radius: 13px; background: white; color: #000; font-weight: 700; cursor: pointer; }
+        #fileInput { display: none; }
+
+        .queue { margin-top: 28px; }
+        .queue-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; font-size: 14px; font-weight: 700; }
+        .file-list { display: flex; flex-direction: column; gap: 10px; }
+        .empty-queue { padding: 20px; border: 1px dashed var(--border); border-radius: 17px; text-align: center; color: var(--muted); font-size: 13px; }
+        .file-item { display: grid; grid-template-columns: 52px minmax(0, 1fr) auto; align-items: center; gap: 13px; padding: 12px; border: 1px solid var(--border); border-radius: 17px; background: var(--surface); }
+        .preview { width: 52px; height: 52px; border-radius: 13px; overflow: hidden; background: var(--surface-2); display: grid; place-items: center; font-size: 22px; }
+        .preview img, .preview video { width: 100%; height: 100%; object-fit: cover; }
+        .file-name { font-size: 14px; font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .file-meta { margin-top: 4px; color: var(--muted); font-size: 12px; }
+        .remove-button { border: 0; background: transparent; color: #686e7b; width: 30px; height: 30px; border-radius: 8px; cursor: pointer; font-size: 16px; }
+
+        .actions { display: flex; gap: 10px; margin-top: 18px; }
+        .upload-button { flex: 1; min-height: 56px; border: 0; border-radius: 16px; background: white; color: black; font-weight: 750; font-size: 15px; cursor: pointer; }
+        .upload-button:disabled { opacity: 0.35; cursor: not-allowed; }
+        .clear-button { padding: 0 20px; border: 1px solid var(--border); border-radius: 16px; color: white; background: rgba(255,255,255,0.03); cursor: pointer; }
+
+        /* Progress UI & State Machine */
+        .upload-progress { margin-top: 22px; padding: 20px; border: 1px solid var(--border); border-radius: 17px; background: var(--surface); display: none; }
+        .upload-progress.visible { display: block; }
+        .progress-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; font-size: 13.5px; }
+        .progress-label { font-weight: 650; color: var(--text); }
+        .progress-percent { font-weight: 700; color: var(--text); }
+        .progress-track { height: 8px; border-radius: 99px; background: rgba(255,255,255,0.08); overflow: hidden; margin-bottom: 12px; }
+        .progress-bar { height: 100%; width: 0%; border-radius: inherit; background: linear-gradient(90deg, #5e8cfc, #72f1a8); transition: width 200ms ease; }
+        .progress-bar.sending-complete { background: linear-gradient(90deg, #f39c12, #f1c40f); animation: pulse-bar 1.5s infinite ease-in-out; }
+        @keyframes pulse-bar { 0% { opacity: 0.7; } 50% { opacity: 1.0; } 100% { opacity: 0.7; } }
+        .progress-sub { display: flex; justify-content: space-between; font-size: 12.5px; color: var(--muted); font-family: monospace; }
+
+        .status { margin-top: 16px; padding: 16px 18px; border-radius: 16px; display: none; font-size: 14px; line-height: 1.5; word-break: break-all; }
+        .status.show { display: block; }
+        .status.success { background: rgba(114,241,168,0.08); border: 1px solid rgba(114,241,168,0.18); color: var(--success); }
+        .status.error { background: rgba(255,126,139,0.08); border: 1px solid rgba(255,126,139,0.18); color: var(--danger); }
+        footer { margin-top: 30px; display: flex; justify-content: space-between; color: #5f6572; font-size: 12px; }
     </style>
 </head>
 <body>
@@ -546,19 +120,16 @@
             <h2>Drag & drop files here</h2>
             <p>Upload photos and videos up to 2 GB per file.</p>
             <p class="drop-hint">Supported: JPG, PNG, GIF, WebP, AVIF, MP4, WebM, MOV, MKV, AVI</p>
-            <label class="browse-button" id="browseButton" for="fileInput">
-                Browse Files
-            </label>
+            <label class="browse-button" id="browseButton" for="fileInput">Browse Files</label>
             <input type="file" id="fileInput" multiple accept="image/*,video/*">
         </div>
     </div>
 
     <section class="queue">
         <div class="queue-header">
-            <span class="queue-title">Selected files</span>
-            <span class="queue-count" id="queueCount">0 files</span>
+            <span>Selected files</span>
+            <span id="queueCount">0 files</span>
         </div>
-
         <div class="file-list" id="fileList"></div>
     </section>
 
@@ -569,14 +140,12 @@
 
     <div class="upload-progress" id="uploadProgress">
         <div class="progress-top">
-            <span class="progress-label" id="progressLabel">Uploading...</span>
+            <span class="progress-label" id="progressLabel">Queued</span>
             <span class="progress-percent" id="progressPercent">0%</span>
         </div>
-
         <div class="progress-track">
             <div class="progress-bar" id="progressBar"></div>
         </div>
-
         <div class="progress-sub">
             <span id="progressBytes">0 MB / 0 MB</span>
             <span id="progressMetrics">0 MB/s · ETA ~--s</span>
@@ -592,6 +161,23 @@
 </div>
 
 <script>
+    /*
+     * Explicit UI State Machine:
+     * QUEUED -> UPLOADING -> SENDING_COMPLETE -> SERVER_PROCESSING -> SERVER_CONFIRMED -> COMPLETE
+     * (or FAILED / CANCELLED)
+     */
+    const UIState = {
+        QUEUED: "QUEUED",
+        UPLOADING: "UPLOADING",
+        SENDING_COMPLETE: "SENDING_COMPLETE",
+        SERVER_PROCESSING: "SERVER_PROCESSING",
+        SERVER_CONFIRMED: "SERVER_CONFIRMED",
+        COMPLETE: "COMPLETE",
+        FAILED: "FAILED",
+        CANCELLED: "CANCELLED"
+    };
+
+    let currentState = UIState.QUEUED;
     let UPLOAD_SERVER = "";
 
     const fileInput = document.getElementById("fileInput");
@@ -614,12 +200,13 @@
     let selectedFiles = [];
     let isUploading = false;
     let serverOnline = false;
+    let currentXhr = null;
 
-    // Rolling upload speed calculator
+    // Timing & Speed tracking
     let uploadStartTime = 0;
     let lastProgressTime = 0;
     let lastProgressBytes = 0;
-    let smoothedSpeed = 0; // Bytes per second
+    let smoothedSpeed = 0; // Exponential Moving Average (Bytes / sec)
 
     function formatBytes(bytes) {
         if (bytes === 0) return "0 Bytes";
@@ -630,9 +217,7 @@
 
     function formatSpeed(bytesPerSec) {
         if (!bytesPerSec || bytesPerSec <= 0) return "0 KB/s";
-        if (bytesPerSec < 1024 * 1024) {
-            return `${(bytesPerSec / 1024).toFixed(1)} KB/s`;
-        }
+        if (bytesPerSec < 1024 * 1024) return `${(bytesPerSec / 1024).toFixed(1)} KB/s`;
         return `${(bytesPerSec / (1024 * 1024)).toFixed(1)} MB/s`;
     }
 
@@ -675,6 +260,65 @@
         updateButtons();
     }
 
+    function transitionState(newState, meta = {}) {
+        currentState = newState;
+
+        switch (newState) {
+            case UIState.QUEUED:
+                isUploading = false;
+                progressBar.classList.remove("sending-complete");
+                progressLabel.textContent = "Queued";
+                break;
+
+            case UIState.UPLOADING:
+                isUploading = true;
+                uploadProgress.classList.add("visible");
+                progressBar.classList.remove("sending-complete");
+                progressLabel.textContent = "Uploading...";
+                break;
+
+            case UIState.SENDING_COMPLETE:
+                progressBar.style.width = "100%";
+                progressBar.classList.add("sending-complete");
+                progressPercent.textContent = "100%";
+                progressLabel.textContent = "Sending complete";
+                progressMetrics.textContent = "Data sent — waiting for server confirmation";
+                break;
+
+            case UIState.SERVER_PROCESSING:
+                progressLabel.textContent = "Waiting for server confirmation...";
+                progressMetrics.textContent = "Flushing disk write & SHA-256 integrity check...";
+                break;
+
+            case UIState.SERVER_CONFIRMED:
+                progressLabel.textContent = "Verifying file integrity...";
+                progressMetrics.textContent = "SHA-256 match verified";
+                break;
+
+            case UIState.COMPLETE:
+                isUploading = false;
+                progressBar.classList.remove("sending-complete");
+                progressBar.style.width = "100%";
+                progressPercent.textContent = "100%";
+                progressLabel.textContent = "✓ Upload complete";
+                break;
+
+            case UIState.FAILED:
+                isUploading = false;
+                progressBar.classList.remove("sending-complete");
+                progressLabel.textContent = "Upload failed";
+                break;
+
+            case UIState.CANCELLED:
+                isUploading = false;
+                progressBar.classList.remove("sending-complete");
+                progressLabel.textContent = "Cancelled";
+                break;
+        }
+
+        updateButtons();
+    }
+
     function updateButtons() {
         uploadButton.disabled = selectedFiles.length === 0 || !serverOnline || isUploading;
         clearButton.disabled = selectedFiles.length === 0 || isUploading;
@@ -687,12 +331,10 @@
             const response = await fetch("/api/config");
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
             const data = await response.json();
-
-            if (!data.uploadServer) throw new Error("Missing uploadServer in configuration");
+            if (!data.uploadServer) throw new Error("Missing uploadServer configuration");
             UPLOAD_SERVER = data.uploadServer;
             return true;
         } catch (error) {
-            console.error("Configuration load failed:", error);
             setConnection(false, "Config error");
             showStatus("Failed to load upload server configuration from Vercel.", "error");
             return false;
@@ -706,20 +348,12 @@
         try {
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 5000);
-
-            const response = await fetch(`${server}/health`, {
-                signal: controller.signal
-            });
+            const response = await fetch(`${server}/health`, { signal: controller.signal });
             clearTimeout(timeoutId);
 
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
             const data = await response.json();
-
-            if (data.ok) {
-                setConnection(true, "Laptop online");
-            } else {
-                setConnection(false, "Laptop reported issue");
-            }
+            setConnection(data.ok === true, data.ok ? "Laptop online" : "Laptop issue");
         } catch {
             setConnection(false, "Laptop offline");
         }
@@ -739,22 +373,21 @@
         selectedFiles.forEach(file => map.set(`${file.name}-${file.size}`, file));
         newFiles.forEach(file => map.set(`${file.name}-${file.size}`, file));
 
-        selectedFiles = Array.from(map.values()).slice(0, 50); // Max 50 files
+        selectedFiles = Array.from(map.values()).slice(0, 50);
         renderFiles();
-        updateButtons();
+        transitionState(UIState.QUEUED);
     }
 
     function removeFile(index) {
         if (isUploading) return;
         selectedFiles.splice(index, 1);
         renderFiles();
-        updateButtons();
+        transitionState(UIState.QUEUED);
         clearStatus();
     }
 
     function renderFiles() {
         queueCount.textContent = `${selectedFiles.length} ${selectedFiles.length === 1 ? "file" : "files"}`;
-
         if (selectedFiles.length === 0) {
             fileList.innerHTML = `<div class="empty-queue">No files selected.</div>`;
             return;
@@ -825,14 +458,17 @@
     });
 
     clearButton.addEventListener("click", () => {
-        if (isUploading) return;
+        if (isUploading) {
+            if (currentXhr) {
+                currentXhr.abort();
+            }
+            return;
+        }
         selectedFiles = [];
         renderFiles();
         clearStatus();
         uploadProgress.classList.remove("visible");
-        progressBar.style.width = "0%";
-        progressPercent.textContent = "0%";
-        progressLabel.textContent = "Uploading...";
+        transitionState(UIState.QUEUED);
     });
 
     uploadButton.addEventListener("click", () => {
@@ -843,17 +479,11 @@
         selectedFiles.forEach(file => formData.append("files", file));
 
         const xhr = new XMLHttpRequest();
+        currentXhr = xhr;
         xhr.open("POST", `${server}/upload`);
 
-        isUploading = true;
-        updateButtons();
+        transitionState(UIState.UPLOADING);
         clearStatus();
-
-        uploadProgress.classList.add("visible");
-        progressBar.classList.remove("finalizing");
-        progressBar.style.width = "0%";
-        progressPercent.textContent = "0%";
-        progressLabel.textContent = "Uploading...";
 
         const totalBytes = selectedFiles.reduce((acc, f) => acc + f.size, 0);
         progressBytes.textContent = `0 B / ${formatBytes(totalBytes)}`;
@@ -872,7 +502,7 @@
             const total = event.total;
             const percent = Math.min(99, Math.round((loaded / total) * 100));
 
-            // Rolling Speed calculation using Exponential Moving Average (alpha = 0.3)
+            // Rolling Speed calculation (EMA alpha = 0.3)
             const timeDelta = (now - lastProgressTime) / 1000;
             if (timeDelta > 0.1) {
                 const bytesDelta = loaded - lastProgressBytes;
@@ -888,25 +518,26 @@
 
             progressBar.style.width = `${percent}%`;
             progressPercent.textContent = `${percent}%`;
-            progressLabel.textContent = "Uploading...";
             progressBytes.textContent = `${formatBytes(loaded)} / ${formatBytes(total)}`;
             progressMetrics.textContent = `${formatSpeed(smoothedSpeed)} · ${formatEta(etaSeconds)}`;
 
-            // State Transition: When browser socket finishes transmitting request body
+            // State Transition: When network transmission hits 100%
             if (loaded >= total) {
-                progressBar.style.width = "100%";
-                progressBar.classList.add("finalizing");
-                progressPercent.textContent = "100%";
-                progressLabel.textContent = "Finalizing server write & integrity check...";
-                progressMetrics.textContent = `${formatSpeed(smoothedSpeed)} · ETA ~Finalizing...`;
+                transitionState(UIState.SENDING_COMPLETE);
+                setTimeout(() => {
+                    if (currentState === UIState.SENDING_COMPLETE) {
+                        transitionState(UIState.SERVER_PROCESSING);
+                    }
+                }, 400);
             }
         });
 
         xhr.addEventListener("load", () => {
-            isUploading = false;
-            progressBar.classList.remove("finalizing");
+            currentXhr = null;
 
             if (xhr.status >= 200 && xhr.status < 300) {
+                transitionState(UIState.SERVER_CONFIRMED);
+
                 let response;
                 try {
                     response = JSON.parse(xhr.responseText);
@@ -916,20 +547,20 @@
 
                 const files = response.files || [];
                 const count = files.length || selectedFiles.length;
+                const totalServerMs = response.totalServerDurationMs ? response.totalServerDurationMs.toFixed(1) : null;
 
-                progressBar.style.width = "100%";
-                progressPercent.textContent = "100%";
-                progressLabel.textContent = "✓ Upload complete";
-                progressMetrics.textContent = "Committed & SHA-256 verified";
+                transitionState(UIState.COMPLETE);
+                progressMetrics.textContent = totalServerMs ? `Server total: ${totalServerMs} ms` : "Committed & SHA-256 verified";
 
                 let detailsHtml = `<strong>✓ ${count} ${count === 1 ? "file" : "files"} uploaded and durably committed:</strong><br><ul style="margin-top: 8px; padding-left: 20px;">`;
                 files.forEach(f => {
-                    detailsHtml += `<li><strong>${escapeHtml(f.originalName)}</strong> (${formatBytes(f.size)})<br><span style="font-family: monospace; font-size: 11px; opacity: 0.8;">SHA-256: ${f.sha256}</span></li>`;
+                    const t = f.timings;
+                    const timingStr = t ? ` · Server timing: Stream ${t.pipelineStreamMs}ms, fsync ${t.fsyncFileMs}ms, rename ${t.atomicRenameMs}ms` : '';
+                    detailsHtml += `<li><strong>${escapeHtml(f.originalName)}</strong> (${formatBytes(f.size)}${timingStr})<br><span style="font-family: monospace; font-size: 11px; opacity: 0.8;">SHA-256: ${f.sha256}</span></li>`;
                 });
                 detailsHtml += `</ul>`;
 
                 showStatus(detailsHtml, "success");
-
                 selectedFiles = [];
                 renderFiles();
             } else {
@@ -939,27 +570,22 @@
                     message = response.error || message;
                 } catch {}
 
-                progressLabel.textContent = "Upload failed";
+                transitionState(UIState.FAILED);
                 showStatus(message, "error");
-                updateButtons();
             }
         });
 
         xhr.addEventListener("error", () => {
-            isUploading = false;
-            progressBar.classList.remove("finalizing");
-            progressLabel.textContent = "Upload error";
+            currentXhr = null;
+            transitionState(UIState.FAILED);
             setConnection(false, "Laptop offline");
             showStatus("Connection failed. Check Cloudflare Tunnel and the laptop server.", "error");
-            updateButtons();
         });
 
         xhr.addEventListener("abort", () => {
-            isUploading = false;
-            progressBar.classList.remove("finalizing");
-            progressLabel.textContent = "Cancelled";
-            showStatus("Upload was cancelled.", "error");
-            updateButtons();
+            currentXhr = null;
+            transitionState(UIState.CANCELLED);
+            showStatus("Upload was cancelled by user.", "error");
         });
 
         xhr.send(formData);
@@ -970,13 +596,11 @@
         setConnection(false, "Loading configuration...");
         const configured = await loadConfiguration();
         if (!configured) return;
-
         await checkServerConnection();
         setInterval(checkServerConnection, 30000);
     }
 
     initialize();
 </script>
-
 </body>
 </html>
