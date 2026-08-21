@@ -162,7 +162,7 @@
 
 <script>
     /*
-     * Explicit UI State Machine:
+     * Explicit State Machine:
      * QUEUED -> UPLOADING -> SENDING_COMPLETE -> SERVER_PROCESSING -> SERVER_CONFIRMED -> COMPLETE
      * (or FAILED / CANCELLED)
      */
@@ -178,7 +178,7 @@
     };
 
     let currentState = UIState.QUEUED;
-    let UPLOAD_SERVER = "";
+    let UPLOAD_SERVER = "https://upload2026.delnex.me"; // Default fallback to production backend
 
     const fileInput = document.getElementById("fileInput");
     const dropZone = document.getElementById("dropZone");
@@ -199,14 +199,18 @@
 
     let selectedFiles = [];
     let isUploading = false;
-    let serverOnline = false;
+    let serverOnline = true; // Default true so upload button is usable
     let currentXhr = null;
 
-    // Timing & Speed tracking
-    let uploadStartTime = 0;
+    // Timestamps
+    let T0_sendStart = 0;
+    let T1_firstProgress = 0;
+    let T2_upload100 = 0;
+    let T4_responseReceived = 0;
+
     let lastProgressTime = 0;
     let lastProgressBytes = 0;
-    let smoothedSpeed = 0; // Exponential Moving Average (Bytes / sec)
+    let smoothedSpeed = 0; // Exponential Moving Average (EMA alpha = 0.3)
 
     function formatBytes(bytes) {
         if (bytes === 0) return "0 Bytes";
@@ -260,7 +264,7 @@
         updateButtons();
     }
 
-    function transitionState(newState, meta = {}) {
+    function transitionState(newState) {
         currentState = newState;
 
         switch (newState) {
@@ -281,17 +285,20 @@
                 progressBar.style.width = "100%";
                 progressBar.classList.add("sending-complete");
                 progressPercent.textContent = "100%";
-                progressLabel.textContent = "Sending complete";
-                progressMetrics.textContent = "Data sent — waiting for server confirmation";
+                progressLabel.textContent = "100% Data sent — waiting for server confirmation";
+                progressMetrics.textContent = "Network payload complete · Processing...";
                 break;
 
             case UIState.SERVER_PROCESSING:
-                progressLabel.textContent = "Waiting for server confirmation...";
+                progressBar.style.width = "100%";
+                progressBar.classList.add("sending-complete");
+                progressPercent.textContent = "100%";
+                progressLabel.textContent = "100% Server is committing your file...";
                 progressMetrics.textContent = "Flushing disk write & SHA-256 integrity check...";
                 break;
 
             case UIState.SERVER_CONFIRMED:
-                progressLabel.textContent = "Verifying file integrity...";
+                progressLabel.textContent = "100% Server confirmed durable commit";
                 progressMetrics.textContent = "SHA-256 match verified";
                 break;
 
@@ -320,7 +327,7 @@
     }
 
     function updateButtons() {
-        uploadButton.disabled = selectedFiles.length === 0 || !serverOnline || isUploading;
+        uploadButton.disabled = selectedFiles.length === 0 || isUploading;
         clearButton.disabled = selectedFiles.length === 0 || isUploading;
         dropZone.classList.toggle("disabled", isUploading);
         browseButton.classList.toggle("disabled", isUploading);
@@ -329,16 +336,16 @@
     async function loadConfiguration() {
         try {
             const response = await fetch("/api/config");
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
-            const data = await response.json();
-            if (!data.uploadServer) throw new Error("Missing uploadServer configuration");
-            UPLOAD_SERVER = data.uploadServer;
-            return true;
-        } catch (error) {
-            setConnection(false, "Config error");
-            showStatus("Failed to load upload server configuration from Vercel.", "error");
-            return false;
+            if (response.ok) {
+                const data = await response.json();
+                if (data.uploadServer) {
+                    UPLOAD_SERVER = data.uploadServer;
+                }
+            }
+        } catch {
+            console.warn("Using default UPLOAD_SERVER fallback:", UPLOAD_SERVER);
         }
+        return true;
     }
 
     async function checkServerConnection() {
@@ -347,7 +354,7 @@
 
         try {
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 5000);
+            const timeoutId = setTimeout(() => controller.abort(), 4000);
             const response = await fetch(`${server}/health`, { signal: controller.signal });
             clearTimeout(timeoutId);
 
@@ -355,7 +362,7 @@
             const data = await response.json();
             setConnection(data.ok === true, data.ok ? "Laptop online" : "Laptop issue");
         } catch {
-            setConnection(false, "Laptop offline");
+            setConnection(false, "Laptop offline (will retry on upload)");
         }
     }
 
@@ -472,7 +479,7 @@
     });
 
     uploadButton.addEventListener("click", () => {
-        if (selectedFiles.length === 0 || !serverOnline || isUploading) return;
+        if (selectedFiles.length === 0 || isUploading) return;
 
         const server = normalizeUploadServer();
         const formData = new FormData();
@@ -489,8 +496,11 @@
         progressBytes.textContent = `0 B / ${formatBytes(totalBytes)}`;
         progressMetrics.textContent = "0 KB/s · ETA ~--s";
 
-        uploadStartTime = performance.now();
-        lastProgressTime = uploadStartTime;
+        T0_sendStart = performance.now();
+        T1_firstProgress = 0;
+        T2_upload100 = 0;
+
+        lastProgressTime = T0_sendStart;
         lastProgressBytes = 0;
         smoothedSpeed = 0;
 
@@ -498,6 +508,10 @@
             if (!event.lengthComputable) return;
 
             const now = performance.now();
+            if (T1_firstProgress === 0) {
+                T1_firstProgress = now;
+            }
+
             const loaded = event.loaded;
             const total = event.total;
             const percent = Math.min(99, Math.round((loaded / total) * 100));
@@ -521,19 +535,20 @@
             progressBytes.textContent = `${formatBytes(loaded)} / ${formatBytes(total)}`;
             progressMetrics.textContent = `${formatSpeed(smoothedSpeed)} · ${formatEta(etaSeconds)}`;
 
-            // State Transition: When network transmission hits 100%
+            // State Transition: 100% payload sent -> IMMEDIATELY transition (no artificial setTimeout)
             if (loaded >= total) {
-                transitionState(UIState.SENDING_COMPLETE);
-                setTimeout(() => {
-                    if (currentState === UIState.SENDING_COMPLETE) {
-                        transitionState(UIState.SERVER_PROCESSING);
-                    }
-                }, 400);
+                T2_upload100 = now;
+                transitionState(UIState.SERVER_PROCESSING);
             }
         });
 
         xhr.addEventListener("load", () => {
+            T4_responseReceived = performance.now();
             currentXhr = null;
+
+            const clientUploadDurationMs = Number((T2_upload100 > 0 ? T2_upload100 - T0_sendStart : T4_responseReceived - T0_sendStart).toFixed(1));
+            const timeFromUpload100ToResponseMs = Number((T2_upload100 > 0 ? T4_responseReceived - T2_upload100 : 0).toFixed(1));
+            const totalClientDurationMs = Number((T4_responseReceived - T0_sendStart).toFixed(1));
 
             if (xhr.status >= 200 && xhr.status < 300) {
                 transitionState(UIState.SERVER_CONFIRMED);
@@ -547,15 +562,14 @@
 
                 const files = response.files || [];
                 const count = files.length || selectedFiles.length;
-                const totalServerMs = response.totalServerDurationMs ? response.totalServerDurationMs.toFixed(1) : null;
 
                 transitionState(UIState.COMPLETE);
-                progressMetrics.textContent = totalServerMs ? `Server total: ${totalServerMs} ms` : "Committed & SHA-256 verified";
+                progressMetrics.textContent = `Total Client: ${totalClientDurationMs} ms (Upload: ${clientUploadDurationMs} ms · Confirmation: ${timeFromUpload100ToResponseMs} ms)`;
 
                 let detailsHtml = `<strong>✓ ${count} ${count === 1 ? "file" : "files"} uploaded and durably committed:</strong><br><ul style="margin-top: 8px; padding-left: 20px;">`;
                 files.forEach(f => {
                     const t = f.timings;
-                    const timingStr = t ? ` · Server timing: Stream ${t.pipelineStreamMs}ms, fsync ${t.fsyncFileMs}ms, rename ${t.atomicRenameMs}ms` : '';
+                    const timingStr = t ? ` · Server: Stream ${t.streamReceiveMs || t.pipelineStreamMs}ms, fsync ${t.fsyncFileMs}ms, rename ${t.renameMs || t.atomicRenameMs}ms` : '';
                     detailsHtml += `<li><strong>${escapeHtml(f.originalName)}</strong> (${formatBytes(f.size)}${timingStr})<br><span style="font-family: monospace; font-size: 11px; opacity: 0.8;">SHA-256: ${f.sha256}</span></li>`;
                 });
                 detailsHtml += `</ul>`;
@@ -578,7 +592,6 @@
         xhr.addEventListener("error", () => {
             currentXhr = null;
             transitionState(UIState.FAILED);
-            setConnection(false, "Laptop offline");
             showStatus("Connection failed. Check Cloudflare Tunnel and the laptop server.", "error");
         });
 
@@ -593,9 +606,7 @@
 
     async function initialize() {
         renderFiles();
-        setConnection(false, "Loading configuration...");
-        const configured = await loadConfiguration();
-        if (!configured) return;
+        await loadConfiguration();
         await checkServerConnection();
         setInterval(checkServerConnection, 30000);
     }
