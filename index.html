@@ -194,7 +194,7 @@
     let selectedFiles = [];
     let isUploading = false;
     let serverOnline = true;
-    let currentXhr = null;
+    let activeXhrs = new Set();
 
     let T0_batchStart = 0;
     let lastProgressTime = 0;
@@ -455,9 +455,10 @@
 
     clearButton.addEventListener("click", () => {
         if (isUploading) {
-            if (currentXhr) {
-                currentXhr.abort();
-            }
+            activeXhrs.forEach(xhr => {
+                try { xhr.abort(); } catch {}
+            });
+            activeXhrs.clear();
             return;
         }
         selectedFiles = [];
@@ -468,9 +469,9 @@
     });
 
     /*
-     * Sequential Batch Uploader:
-     * Uploads files file-by-file sequentially to prevent hitting Cloudflare Tunnel's
-     * 100 MB per-request body size limit while accurately updating aggregate batch progress!
+     * High-Throughput Parallel Concurrency Pool Uploader:
+     * Executes up to 2 parallel stream HTTP POST requests concurrently over Cloudflare Tunnel.
+     * Bypasses Cloudflare's 100 MB per-request body limit while multiplying WAN upload speed!
      */
     async function uploadSingleFile(file, server, onProgress) {
         return new Promise((resolve, reject) => {
@@ -478,7 +479,7 @@
             formData.append("files", file);
 
             const xhr = new XMLHttpRequest();
-            currentXhr = xhr;
+            activeXhrs.add(xhr);
             xhr.open("POST", `${server}/upload`);
 
             xhr.upload.addEventListener("progress", event => {
@@ -488,7 +489,7 @@
             });
 
             xhr.addEventListener("load", () => {
-                currentXhr = null;
+                activeXhrs.delete(xhr);
                 if (xhr.status >= 200 && xhr.status < 300) {
                     try {
                         const json = JSON.parse(xhr.responseText);
@@ -507,12 +508,12 @@
             });
 
             xhr.addEventListener("error", () => {
-                currentXhr = null;
+                activeXhrs.delete(xhr);
                 reject(new Error(`Connection/CORS error reaching server (${server}). Check Cloudflare Tunnel and laptop server.`));
             });
 
             xhr.addEventListener("abort", () => {
-                currentXhr = null;
+                activeXhrs.delete(xhr);
                 reject(new Error("CANCELLED"));
             });
 
@@ -527,7 +528,7 @@
         const filesToUpload = Array.from(selectedFiles);
         const totalBatchBytes = filesToUpload.reduce((acc, f) => acc + f.size, 0);
 
-        transitionState(UIState.UPLOADING, `Uploading batch (1 of ${filesToUpload.length})...`);
+        transitionState(UIState.UPLOADING, `Uploading batch (${filesToUpload.length} ${filesToUpload.length === 1 ? "file" : "files"})...`);
         clearStatus();
 
         progressBytes.textContent = `0 B / ${formatBytes(totalBatchBytes)}`;
@@ -538,57 +539,74 @@
         lastProgressBytes = 0;
         smoothedSpeed = 0;
 
-        let completedBytesFromFinishedFiles = 0;
+        const fileProgressMap = new Map(); // fileIndex -> loadedBytes
+        filesToUpload.forEach((_, idx) => fileProgressMap.set(idx, 0));
+
         const allCommittedFiles = [];
+        const CONCURRENCY = 2; // 2 parallel stream uploads for maximum throughput
+        let nextFileIndex = 0;
+        let isBatchAborted = false;
 
-        try {
-            for (let i = 0; i < filesToUpload.length; i++) {
-                const currentFile = filesToUpload[i];
-                const fileIndex = i + 1;
+        function updateAggregateProgress() {
+            if (isBatchAborted) return;
+            const now = performance.now();
 
-                transitionState(
-                    UIState.UPLOADING,
-                    `Uploading file ${fileIndex} of ${filesToUpload.length}: "${currentFile.name}"...`
-                );
+            let aggregateLoaded = 0;
+            fileProgressMap.forEach(loaded => { aggregateLoaded += loaded; });
 
-                const result = await uploadSingleFile(currentFile, server, (fileLoaded, fileTotal) => {
-                    const now = performance.now();
-                    const aggregateLoaded = completedBytesFromFinishedFiles + fileLoaded;
-                    const percent = Math.min(99, Math.round((aggregateLoaded / totalBatchBytes) * 100));
+            const percent = Math.min(99, Math.round((aggregateLoaded / totalBatchBytes) * 100));
 
-                    // Rolling Speed calculation (EMA alpha = 0.3)
-                    const timeDelta = (now - lastProgressTime) / 1000;
-                    if (timeDelta > 0.1) {
-                        const bytesDelta = aggregateLoaded - lastProgressBytes;
-                        const instantSpeed = bytesDelta / timeDelta;
-                        smoothedSpeed = smoothedSpeed === 0 ? instantSpeed : (0.3 * instantSpeed + 0.7 * smoothedSpeed);
+            // Rolling Speed calculation (EMA alpha = 0.3)
+            const timeDelta = (now - lastProgressTime) / 1000;
+            if (timeDelta > 0.1) {
+                const bytesDelta = aggregateLoaded - lastProgressBytes;
+                const instantSpeed = bytesDelta / timeDelta;
+                smoothedSpeed = smoothedSpeed === 0 ? instantSpeed : (0.3 * instantSpeed + 0.7 * smoothedSpeed);
 
-                        lastProgressTime = now;
-                        lastProgressBytes = aggregateLoaded;
+                lastProgressTime = now;
+                lastProgressBytes = aggregateLoaded;
+            }
+
+            const remainingBytes = totalBatchBytes - aggregateLoaded;
+            const etaSeconds = smoothedSpeed > 0 ? remainingBytes / smoothedSpeed : 0;
+
+            progressBar.style.width = `${percent}%`;
+            progressPercent.textContent = `${percent}%`;
+            progressBytes.textContent = `${formatBytes(aggregateLoaded)} / ${formatBytes(totalBatchBytes)}`;
+            progressMetrics.textContent = `${formatSpeed(smoothedSpeed)} · ${formatEta(etaSeconds)}`;
+        }
+
+        async function worker() {
+            while (nextFileIndex < filesToUpload.length && !isBatchAborted) {
+                const currentIndex = nextFileIndex++;
+                const file = filesToUpload[currentIndex];
+
+                try {
+                    const result = await uploadSingleFile(file, server, (fileLoaded) => {
+                        fileProgressMap.set(currentIndex, fileLoaded);
+                        updateAggregateProgress();
+                    });
+
+                    fileProgressMap.set(currentIndex, file.size);
+                    updateAggregateProgress();
+
+                    if (result.files && result.files.length > 0) {
+                        allCommittedFiles.push(...result.files);
                     }
-
-                    const remainingBytes = totalBatchBytes - aggregateLoaded;
-                    const etaSeconds = smoothedSpeed > 0 ? remainingBytes / smoothedSpeed : 0;
-
-                    progressBar.style.width = `${percent}%`;
-                    progressPercent.textContent = `${percent}%`;
-                    progressBytes.textContent = `${formatBytes(aggregateLoaded)} / ${formatBytes(totalBatchBytes)}`;
-                    progressMetrics.textContent = `${formatSpeed(smoothedSpeed)} · ${formatEta(etaSeconds)}`;
-
-                    if (fileLoaded >= fileTotal) {
-                        transitionState(
-                            UIState.SERVER_PROCESSING,
-                            `100% Server is committing file ${fileIndex} of ${filesToUpload.length}...`,
-                            `Flushing disk write & SHA-256 check for "${currentFile.name}"...`
-                        );
-                    }
-                });
-
-                completedBytesFromFinishedFiles += currentFile.size;
-                if (result.files && result.files.length > 0) {
-                    allCommittedFiles.push(...result.files);
+                } catch (err) {
+                    isBatchAborted = true;
+                    throw err;
                 }
             }
+        }
+
+        try {
+            const workers = [];
+            for (let i = 0; i < Math.min(CONCURRENCY, filesToUpload.length); i++) {
+                workers.push(worker());
+            }
+
+            await Promise.all(workers);
 
             const TEnd = performance.now();
             const totalBatchMs = Number((TEnd - T0_batchStart).toFixed(1));
